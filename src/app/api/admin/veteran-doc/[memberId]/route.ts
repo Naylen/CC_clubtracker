@@ -72,7 +72,7 @@ export async function GET(
     });
 
     // Return the file with proper headers
-    return new NextResponse(decryptedBuffer, {
+    return new NextResponse(new Uint8Array(decryptedBuffer), {
       headers: {
         "Content-Type": target[0].veteranDocMimeType ?? "application/octet-stream",
         "Content-Disposition": `inline; filename="${target[0].veteranDocFilename ?? "veteran-doc"}"`,
