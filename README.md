@@ -1,36 +1,153 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# MCFGC Club Manager
 
-## Getting Started
+Web application for the Montgomery County Fish & Game Club to manage annual
+memberships, collect dues, and communicate with members.
 
-First, run the development server:
+**Stack:** Next.js 16 · React 19 · TypeScript · PostgreSQL 16 · Drizzle ORM ·
+Better Auth · Stripe · Resend + Gmail SMTP · Inngest · Docker · Cloudflare Tunnel
+
+---
+
+## Features
+
+- **Membership Management** — household-based roster with 350-slot capacity cap,
+  configurable tiers (Standard $150, Veteran $100, Senior $100), and calendar-year
+  renewal cycle with automatic lapse enforcement.
+
+- **Online Payments** — Stripe Checkout for members to pay dues from home, plus
+  admin-recorded cash/check payments. Dual verification (webhook + server-side).
+
+- **New Member Sign-Up** — public application form with driver's license input
+  (encrypted at rest), veteran document upload, password creation, and auto-login.
+  Admin reviews and approves applications, assigns tiers; members pay when approved.
+
+- **Email Broadcasts** — send mass emails to filtered member lists via Resend
+  batch API or Gmail SMTP. Full communications log with provider tracking.
+
+- **Member Portal** — members view application status, household details, payment
+  history, and pay dues online. Magic link login supported.
+
+- **Admin Dashboard** — real-time capacity gauge, application review queue with
+  inline veteran doc viewing, household/member CRUD, payment recording, admin
+  management, and full audit log.
+
+- **Security** — AES-256-GCM encryption for sensitive data, role-based access
+  (SUPER_ADMIN / ADMIN / MEMBER), audit logging for all admin actions, Stripe
+  webhook signature verification.
+
+---
+
+## Quick Start (Development)
+
+**Prerequisites:** Docker Desktop, Git
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# Clone and start
+git clone <repo-url>
+cd mcfgc-club-manager
+
+# Copy env template and fill in values
+cp .env.example .env.local
+# Edit .env.local — at minimum set:
+#   BETTER_AUTH_SECRET (openssl rand -base64 32)
+#   ENCRYPTION_KEY (openssl rand -hex 32)
+#   STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY, STRIPE_WEBHOOK_SECRET
+
+# Start development containers (PostgreSQL + Next.js with hot reload)
+docker compose up -d --build
+
+# App runs at http://localhost:3001
+# Default admin: see ADMIN_EMAIL / ADMIN_PASSWORD in your .env.local
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+On first startup, the app automatically:
+- Pushes the database schema (via `drizzle-kit push`)
+- Seeds the initial admin account from env vars
+- Seeds default membership tiers (Standard, Veteran, Senior)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Production Deployment
 
-## Learn More
+**Prerequisites:** Docker, a domain with Cloudflare Tunnel
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+# 1. Run the setup script — generates .env.production with auto-generated secrets
+chmod +x setup.sh
+./setup.sh
+# Prompts for: domain, admin email, admin name, admin password
+# Auto-generates: BETTER_AUTH_SECRET, ENCRYPTION_KEY, DB_PASSWORD
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# 2. Edit .env.production — add your API keys
+#    Required: STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY, STRIPE_WEBHOOK_SECRET
+#    Optional: RESEND_API_KEY, GMAIL_USER + GMAIL_APP_PASSWORD, INNGEST_SIGNING_KEY
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# 3. Start production containers
+docker compose -f docker-compose.prod.yml up -d --build
 
-## Deploy on Vercel
+# 4. Point your Cloudflare Tunnel to http://localhost:3001
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+# 5. Visit https://your-domain.com and log in with the admin credentials you set
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+**Production architecture:**
+- Isolated `mcfgc-internal` Docker bridge network
+- PostgreSQL has no exposed ports (internal network only)
+- Next.js standalone build (`output: "standalone"`)
+- `APP_DOMAIN` env var drives all URL-based configuration
+- Schema push + seeding runs automatically on first startup
+
+---
+
+## Project Structure
+
+```
+src/
+├── app/
+│   ├── (admin)/admin/     Admin UI (dashboard, roster, payments, broadcasts, audit)
+│   ├── (member)/member/   Member portal (dashboard, renewal)
+│   ├── (auth)/            Login, magic link, change password
+│   ├── (public)/          Public sign-up day page
+│   └── api/               Auth handler, Stripe webhook, Inngest, veteran doc API
+├── actions/               Server actions (households, members, payments, etc.)
+├── components/            React components (admin, member, public, shared)
+├── lib/
+│   ├── db/schema/         Drizzle schema definitions (11 tables)
+│   ├── inngest/functions/ Background jobs (lapse check, email batch, seed renewals)
+│   ├── utils/             Business logic (pricing, capacity, encryption, audit)
+│   └── validators/        Zod schemas (shared client/server validation)
+└── types/                 Shared TypeScript types
+```
+
+---
+
+## Environment Variables
+
+See [`.env.example`](.env.example) for the complete reference. Key variables:
+
+| Variable | Description |
+|----------|-------------|
+| `APP_DOMAIN` | Public domain (production). Derives auth URLs and email from addresses. |
+| `BETTER_AUTH_SECRET` | Session signing secret. Auto-generated by `setup.sh`. |
+| `ENCRYPTION_KEY` | AES-256-GCM key for DL encryption. Auto-generated by `setup.sh`. |
+| `STRIPE_SECRET_KEY` | Stripe API secret key. |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret. |
+| `RESEND_API_KEY` | Resend email API key (optional if using Gmail). |
+| `GMAIL_USER` / `GMAIL_APP_PASSWORD` | Gmail SMTP credentials (optional). |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Initial admin credentials (first startup only). |
+
+---
+
+## Documentation
+
+- **[`docs/APP_OVERVIEW.md`](docs/APP_OVERVIEW.md)** — full architecture,
+  data model, business rules, and deployment guide.
+- **[`AGENTS.md`](AGENTS.md)** — coding standards, directory structure, and
+  conventions for contributors and AI agents.
+- **[`.env.example`](.env.example)** — all environment variables with descriptions.
+
+---
+
+## License
+
+Private — Montgomery County Fish & Game Club
