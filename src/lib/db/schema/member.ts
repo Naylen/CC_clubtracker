@@ -14,6 +14,18 @@ export const memberRoleEnum = pgEnum("member_role", [
   "DEPENDENT",
 ]);
 
+/**
+ * Admin role hierarchy for RBAC:
+ * - SUPER_ADMIN: Full access, can manage other admins. Seeded from .env.
+ * - ADMIN: Full operational access (members, years, payments, broadcasts).
+ * - OFFICER: Limited access (view members, manage sign-up day, view payments).
+ */
+export const adminRoleEnum = pgEnum("admin_role", [
+  "SUPER_ADMIN",
+  "ADMIN",
+  "OFFICER",
+]);
+
 export const member = pgTable("member", {
   id: uuid("id").defaultRandom().primaryKey(),
   householdId: uuid("household_id")
@@ -26,6 +38,7 @@ export const member = pgTable("member", {
   role: memberRoleEnum("role").notNull(),
   isVeteranDisabled: boolean("is_veteran_disabled").notNull().default(false),
   isAdmin: boolean("is_admin").notNull().default(false),
+  adminRole: adminRoleEnum("admin_role"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

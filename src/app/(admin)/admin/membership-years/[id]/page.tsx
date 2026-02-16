@@ -6,6 +6,7 @@ import { getCapacityDisplay } from "@/lib/utils/capacity";
 import { MembershipYearForm } from "@/components/admin/MembershipYearForm";
 import { CapacityGauge } from "@/components/admin/CapacityGauge";
 import { SignupEventToggle } from "@/components/admin/SignupEventToggle";
+import { SignupEventForm } from "@/components/admin/SignupEventForm";
 import { formatCurrency, formatDateET } from "@/lib/utils/dates";
 import Link from "next/link";
 
@@ -86,8 +87,8 @@ export default async function MembershipYearDetailPage({ params }: Props) {
         <h3 className="text-lg font-semibold text-gray-900">
           Sign-Up Day Event
         </h3>
-        {signupEvent ? (
-          <div className="mt-4 rounded-lg border bg-white p-6 space-y-4">
+        {signupEvent && (
+          <div className="mt-4 rounded-lg border bg-white p-4">
             <div className="flex items-center justify-between">
               <h4 className="text-sm font-medium text-gray-500">
                 Member Visibility
@@ -97,34 +98,24 @@ export default async function MembershipYearDetailPage({ params }: Props) {
                 isPublic={signupEvent.isPublic}
               />
             </div>
-            <dl className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <dt className="text-gray-500">Date</dt>
-                <dd className="font-medium">{signupEvent.eventDate}</dd>
-              </div>
-              <div>
-                <dt className="text-gray-500">Time</dt>
-                <dd className="font-medium">
-                  {signupEvent.eventStartTime} – {signupEvent.eventEndTime}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-gray-500">Location</dt>
-                <dd className="font-medium">{signupEvent.location}</dd>
-              </div>
-              {signupEvent.notes && (
-                <div>
-                  <dt className="text-gray-500">Notes</dt>
-                  <dd className="font-medium">{signupEvent.notes}</dd>
-                </div>
-              )}
-            </dl>
           </div>
-        ) : (
-          <p className="mt-4 text-sm text-gray-500">
-            No sign-up event configured for this year.
-          </p>
         )}
+        <div className="mt-4">
+          <SignupEventForm
+            membershipYearId={id}
+            existing={
+              signupEvent
+                ? {
+                    eventDate: signupEvent.eventDate,
+                    eventStartTime: signupEvent.eventStartTime,
+                    eventEndTime: signupEvent.eventEndTime,
+                    location: signupEvent.location,
+                    notes: signupEvent.notes,
+                  }
+                : null
+            }
+          />
+        </div>
       </section>
 
       {/* Year Settings */}

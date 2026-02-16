@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -9,6 +11,7 @@ import {
   CreditCard,
   Mail,
   ClipboardList,
+  ShieldCheck,
 } from "lucide-react";
 
 const navItems = [
@@ -23,6 +26,11 @@ const navItems = [
   { href: "/admin/payments", label: "Payments", icon: CreditCard },
   { href: "/admin/broadcasts", label: "Broadcasts", icon: Mail },
   { href: "/admin/audit-log", label: "Audit Log", icon: ClipboardList },
+  {
+    href: "/admin/admin-management",
+    label: "Admin Management",
+    icon: ShieldCheck,
+  },
 ];
 
 export function Sidebar() {

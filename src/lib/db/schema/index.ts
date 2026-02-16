@@ -1,6 +1,6 @@
 export { user, session, account, verification } from "./auth";
 export { household } from "./household";
-export { member, memberRoleEnum } from "./member";
+export { member, memberRoleEnum, adminRoleEnum } from "./member";
 export { membershipYear } from "./membership-year";
 export {
   membership,
