@@ -1,0 +1,153 @@
+"use server";
+
+import { db } from "@/lib/db";
+import { payment, membership, member, household } from "@/lib/db/schema";
+import { recordPaymentSchema } from "@/lib/validators/payment";
+import { recordAudit } from "@/lib/utils/audit";
+import { createCheckoutSession } from "@/lib/stripe";
+import { eq, desc } from "drizzle-orm";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
+import type { ActionResult } from "@/types";
+
+async function getAdminSession() {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) throw new Error("Unauthorized");
+  const adminMember = await db
+    .select()
+    .from(member)
+    .where(eq(member.email, session.user.email))
+    .limit(1);
+  if (!adminMember[0]?.isAdmin) throw new Error("Forbidden: Admin only");
+  return { session, adminMember: adminMember[0] };
+}
+
+/**
+ * Record an in-person payment (cash/check) by an admin.
+ */
+export async function recordPayment(
+  input: unknown
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const { adminMember } = await getAdminSession();
+    const data = recordPaymentSchema.parse(input);
+
+    const [created] = await db
+      .insert(payment)
+      .values({
+        membershipId: data.membershipId,
+        amountCents: data.amountCents,
+        method: data.method,
+        recordedByAdminId: adminMember.id,
+        status: "SUCCEEDED",
+        paidAt: new Date(),
+      })
+      .returning({ id: payment.id });
+
+    // Activate the membership
+    await db
+      .update(membership)
+      .set({
+        status: "ACTIVE",
+        enrolledAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(membership.id, data.membershipId));
+
+    await recordAudit({
+      actorId: adminMember.id,
+      actorType: "ADMIN",
+      action: "payment.record",
+      entityType: "payment",
+      entityId: created.id,
+      metadata: {
+        membershipId: data.membershipId,
+        amountCents: data.amountCents,
+        method: data.method,
+      },
+    });
+
+    return { success: true, data: { id: created.id } };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+/**
+ * Create a Stripe Checkout session for a membership renewal.
+ */
+export async function createStripeCheckout(
+  membershipId: string
+): Promise<ActionResult<{ url: string }>> {
+  try {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session) return { success: false, error: "Unauthorized" };
+
+    // Get the membership with related data
+    const membershipRecord = await db
+      .select()
+      .from(membership)
+      .where(eq(membership.id, membershipId))
+      .limit(1);
+
+    if (!membershipRecord[0]) {
+      return { success: false, error: "Membership not found" };
+    }
+
+    const householdRecord = await db
+      .select()
+      .from(household)
+      .where(eq(household.id, membershipRecord[0].householdId))
+      .limit(1);
+
+    if (!householdRecord[0]) {
+      return { success: false, error: "Household not found" };
+    }
+
+    // Get the year number
+    const { membershipYear } = await import("@/lib/db/schema");
+    const yearRecord = await db
+      .select()
+      .from(membershipYear)
+      .where(eq(membershipYear.id, membershipRecord[0].membershipYearId))
+      .limit(1);
+
+    // Create pending payment
+    await db.insert(payment).values({
+      membershipId,
+      amountCents: membershipRecord[0].priceCents,
+      method: "STRIPE",
+      status: "PENDING",
+    });
+
+    const checkoutUrl = await createCheckoutSession({
+      membershipId,
+      householdName: householdRecord[0].name,
+      amountCents: membershipRecord[0].priceCents,
+      membershipYear: yearRecord[0]?.year ?? new Date().getFullYear(),
+      customerEmail: householdRecord[0].email,
+    });
+
+    return { success: true, data: { url: checkoutUrl } };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+export async function getPayments() {
+  return db.select().from(payment).orderBy(desc(payment.createdAt));
+}
+
+export async function getPaymentsByMembership(membershipId: string) {
+  return db
+    .select()
+    .from(payment)
+    .where(eq(payment.membershipId, membershipId))
+    .orderBy(desc(payment.createdAt));
+}
