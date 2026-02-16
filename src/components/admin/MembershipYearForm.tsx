@@ -37,11 +37,9 @@ export function MembershipYearForm({
 
     const data = {
       year,
-      opensAt: new Date(
-        formData.get("opensAt") as string
-      ).toISOString(),
+      opensAt: new Date(formData.get("opensAt") as string).toISOString(),
       renewalDeadline: new Date(
-        formData.get("renewalDeadline") as string
+        formData.get("renewalDeadline") as string,
       ).toISOString(),
       capacityCap: parseInt(formData.get("capacityCap") as string),
     };
@@ -81,41 +79,50 @@ export function MembershipYearForm({
         />
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700">
-          Renewals Open
-        </label>
-        <input
-          name="opensAt"
-          type="datetime-local"
-          defaultValue={
-            membershipYear?.opensAt
-              ? new Date(membershipYear.opensAt).toISOString().slice(0, 16)
-              : `${nextYear}-01-01T00:00`
-          }
-          required
-          className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
-        />
-      </div>
+      <fieldset className="space-y-4 rounded-lg border p-4">
+        <legend className="text-sm font-semibold text-gray-900">
+          Renewal Window
+        </legend>
+        <p className="text-xs text-gray-500">
+          Set the dates when current members can renew. Online payment will only
+          be available during this window.
+        </p>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Window Opens
+          </label>
+          <input
+            name="opensAt"
+            type="datetime-local"
+            defaultValue={
+              membershipYear?.opensAt
+                ? new Date(membershipYear.opensAt).toISOString().slice(0, 16)
+                : `${nextYear}-01-01T00:00`
+            }
+            required
+            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+          />
+        </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700">
-          Renewal Deadline
-        </label>
-        <input
-          name="renewalDeadline"
-          type="datetime-local"
-          defaultValue={
-            membershipYear?.renewalDeadline
-              ? new Date(membershipYear.renewalDeadline)
-                  .toISOString()
-                  .slice(0, 16)
-              : `${nextYear}-01-31T23:59`
-          }
-          required
-          className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
-        />
-      </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Window Closes
+          </label>
+          <input
+            name="renewalDeadline"
+            type="datetime-local"
+            defaultValue={
+              membershipYear?.renewalDeadline
+                ? new Date(membershipYear.renewalDeadline)
+                    .toISOString()
+                    .slice(0, 16)
+                : `${nextYear}-01-31T23:59`
+            }
+            required
+            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+          />
+        </div>
+      </fieldset>
 
       <div>
         <label className="block text-sm font-medium text-gray-700">
@@ -141,11 +148,7 @@ export function MembershipYearForm({
           disabled={loading}
           className="rounded-md bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-800 disabled:opacity-50"
         >
-          {loading
-            ? "Saving..."
-            : isEdit
-              ? "Update Year"
-              : "Create Year"}
+          {loading ? "Saving..." : isEdit ? "Update Year" : "Create Year"}
         </button>
         <button
           type="button"

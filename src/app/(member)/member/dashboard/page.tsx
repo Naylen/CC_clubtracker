@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { member, household, membership } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { formatCurrency, formatDateET } from "@/lib/utils/dates";
+import { getPublicSignupEvent } from "@/actions/signup-events";
 
 export default async function MemberDashboard() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -46,6 +47,8 @@ export default async function MemberDashboard() {
     .from(member)
     .where(eq(member.householdId, memberRecord[0].householdId));
 
+  const signupEvent = await getPublicSignupEvent();
+
   return (
     <div className="space-y-8">
       <div>
@@ -56,6 +59,43 @@ export default async function MemberDashboard() {
           {householdRecord[0]?.name} household
         </p>
       </div>
+
+      {/* Sign-Up Day - Only shown when admin enables visibility */}
+      {signupEvent && (
+        <section className="rounded-lg border-2 border-green-300 bg-green-50 p-6">
+          <h3 className="text-lg font-semibold text-green-900">
+            New Member Sign-Up Day
+          </h3>
+          <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <dt className="text-green-700">Date</dt>
+              <dd className="font-medium text-green-900">
+                {signupEvent.eventDate}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-green-700">Time</dt>
+              <dd className="font-medium text-green-900">
+                {signupEvent.eventStartTime} &ndash; {signupEvent.eventEndTime}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-green-700">Location</dt>
+              <dd className="font-medium text-green-900">
+                {signupEvent.location}
+              </dd>
+            </div>
+            {signupEvent.notes && (
+              <div>
+                <dt className="text-green-700">Notes</dt>
+                <dd className="font-medium text-green-900">
+                  {signupEvent.notes}
+                </dd>
+              </div>
+            )}
+          </dl>
+        </section>
+      )}
 
       {/* Household Info */}
       <section className="rounded-lg border bg-white p-6">

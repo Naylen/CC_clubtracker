@@ -26,7 +26,7 @@ async function getAdminSession() {
  * BR-7: Admin can change date/time; change logged in audit_log.
  */
 export async function upsertSignupEvent(
-  input: unknown
+  input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   try {
     const { adminMember } = await getAdminSession();
@@ -117,4 +117,82 @@ export async function getSignupEvent(membershipYearId: string) {
     .where(eq(signupEventConfig.membershipYearId, membershipYearId))
     .limit(1);
   return result[0] ?? null;
+}
+
+/**
+ * Toggle the public visibility of a sign-up event.
+ * When enabled, members can see the sign-up day information.
+ * When disabled, the section is hidden from members.
+ */
+export async function toggleSignupEventVisibility(
+  signupEventId: string,
+): Promise<ActionResult> {
+  try {
+    const { adminMember } = await getAdminSession();
+
+    const existing = await db
+      .select()
+      .from(signupEventConfig)
+      .where(eq(signupEventConfig.id, signupEventId))
+      .limit(1);
+
+    if (!existing[0]) {
+      return { success: false, error: "Sign-up event not found" };
+    }
+
+    const newValue = !existing[0].isPublic;
+
+    await db
+      .update(signupEventConfig)
+      .set({
+        isPublic: newValue,
+        updatedByAdminId: adminMember.id,
+      })
+      .where(eq(signupEventConfig.id, signupEventId));
+
+    await recordAudit({
+      actorId: adminMember.id,
+      actorType: "ADMIN",
+      action: newValue
+        ? "signup_event.make_public"
+        : "signup_event.make_private",
+      entityType: "signup_event_config",
+      entityId: signupEventId,
+      metadata: { isPublic: newValue },
+    });
+
+    return { success: true, data: undefined };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+/**
+ * Get the current public sign-up event (for member-facing pages).
+ * Returns null if no event is configured or if it's not public.
+ */
+export async function getPublicSignupEvent() {
+  const { membershipYear } = await import("@/lib/db/schema");
+  const currentYear = new Date().getFullYear();
+
+  const yearRecord = await db
+    .select()
+    .from(membershipYear)
+    .where(eq(membershipYear.year, currentYear))
+    .limit(1);
+
+  if (!yearRecord[0]) return null;
+
+  const result = await db
+    .select()
+    .from(signupEventConfig)
+    .where(eq(signupEventConfig.membershipYearId, yearRecord[0].id))
+    .limit(1);
+
+  if (!result[0] || !result[0].isPublic) return null;
+
+  return result[0];
 }

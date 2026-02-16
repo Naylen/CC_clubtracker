@@ -1,4 +1,12 @@
-import { date, pgTable, text, time, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  date,
+  pgTable,
+  text,
+  time,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { membershipYear } from "./membership-year";
 import { member } from "./member";
 
@@ -11,6 +19,7 @@ export const signupEventConfig = pgTable("signup_event_config", {
   eventDate: date("event_date", { mode: "string" }).notNull(),
   eventStartTime: time("event_start_time").notNull(),
   eventEndTime: time("event_end_time").notNull(),
+  isPublic: boolean("is_public").notNull().default(false),
   location: text("location")
     .notNull()
     .default("6701 Old Nest Egg Rd, Mt Sterling, KY 40353"),

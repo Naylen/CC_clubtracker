@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import {
   Home,
   Users,
+  UserPlus,
   Calendar,
   CreditCard,
   Mail,
@@ -12,6 +13,7 @@ import {
 
 const navItems = [
   { href: "/admin/dashboard", label: "Dashboard", icon: Home },
+  { href: "/admin/members", label: "Members", icon: UserPlus },
   { href: "/admin/households", label: "Households", icon: Users },
   {
     href: "/admin/membership-years",
@@ -40,7 +42,7 @@ export function Sidebar() {
                 "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                 isActive
                   ? "bg-green-100 text-green-800"
-                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
               )}
             >
               <Icon className="h-4 w-4" />

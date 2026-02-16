@@ -21,7 +21,7 @@ interface CapacityResult {
  */
 export async function checkCapacity(
   membershipYearId: string,
-  capacityCap: number
+  capacityCap: number,
 ): Promise<CapacityResult> {
   const countStatuses = ["ACTIVE", "PENDING_RENEWAL", "NEW_PENDING"] as const;
 
@@ -31,12 +31,13 @@ export async function checkCapacity(
     WHERE ${membership.membershipYearId} = ${membershipYearId}
       AND ${membership.status} IN (${sql.join(
         countStatuses.map((s) => sql`${s}`),
-        sql`, `
+        sql`, `,
       )})
     FOR UPDATE
   `);
 
-  const occupied = (result.rows[0] as { occupied: number }).occupied;
+  const rows = result as unknown as { occupied: number }[];
+  const occupied = rows[0]?.occupied ?? 0;
 
   return {
     occupied,
@@ -51,7 +52,7 @@ export async function checkCapacity(
  */
 export async function getCapacityDisplay(
   membershipYearId: string,
-  capacityCap: number
+  capacityCap: number,
 ): Promise<CapacityResult> {
   const result = await db
     .select({ count: sql<number>`COUNT(*)::int` })
@@ -63,8 +64,8 @@ export async function getCapacityDisplay(
           "ACTIVE",
           "PENDING_RENEWAL",
           "NEW_PENDING",
-        ])
-      )
+        ]),
+      ),
     );
 
   const occupied = result[0]?.count ?? 0;

@@ -9,9 +9,7 @@ export default async function MembershipYearsPage() {
     <div>
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">
-            Membership Years
-          </h2>
+          <h2 className="text-2xl font-bold text-gray-900">Membership Years</h2>
           <p className="mt-1 text-sm text-gray-500">
             Configure annual membership periods, capacity, and deadlines.
           </p>
@@ -30,10 +28,10 @@ export default async function MembershipYearsPage() {
             <tr>
               <th className="px-4 py-3 font-medium text-gray-500">Year</th>
               <th className="px-4 py-3 font-medium text-gray-500">
-                Opens At
+                Renewal Window Opens
               </th>
               <th className="px-4 py-3 font-medium text-gray-500">
-                Renewal Deadline
+                Renewal Window Closes
               </th>
               <th className="px-4 py-3 font-medium text-gray-500">
                 Capacity Cap
@@ -64,10 +62,7 @@ export default async function MembershipYearsPage() {
             ))}
             {years.length === 0 && (
               <tr>
-                <td
-                  colSpan={5}
-                  className="px-4 py-8 text-center text-gray-500"
-                >
+                <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
                   No membership years configured yet.
                 </td>
               </tr>
