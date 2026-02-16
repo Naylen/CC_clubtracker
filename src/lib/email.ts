@@ -3,7 +3,17 @@ import nodemailer from "nodemailer";
 
 export const resend = new Resend(process.env.RESEND_API_KEY);
 
-const FROM_ADDRESS = "MCFGC <noreply@mcfgcinc.com>";
+/**
+ * Derive the Resend "from" address from APP_DOMAIN (production)
+ * or fall back to a hardcoded default (development).
+ */
+function getResendFromAddress(): string {
+  const domain = process.env.APP_DOMAIN;
+  if (domain) {
+    return `MCFGC <noreply@${domain}>`;
+  }
+  return "MCFGC <noreply@mcfgcinc.com>";
+}
 
 export type EmailProvider = "resend" | "gmail";
 
@@ -47,7 +57,7 @@ function getFromAddress(provider: EmailProvider): string {
   if (provider === "gmail") {
     return `MCFGC <${process.env.GMAIL_USER}>`;
   }
-  return FROM_ADDRESS;
+  return getResendFromAddress();
 }
 
 /**
@@ -58,7 +68,7 @@ export async function sendMagicLinkEmail(
   url: string
 ): Promise<void> {
   await resend.emails.send({
-    from: FROM_ADDRESS,
+    from: getResendFromAddress(),
     to: email,
     subject: "MCFGC - Sign In Link",
     html: `
@@ -81,7 +91,7 @@ export async function sendRenewalReminder(
   portalUrl: string
 ): Promise<void> {
   await resend.emails.send({
-    from: FROM_ADDRESS,
+    from: getResendFromAddress(),
     to: email,
     subject: `MCFGC ${year} Membership Renewal`,
     html: `

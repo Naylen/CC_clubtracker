@@ -1,0 +1,45 @@
+services:
+  db:
+    image: postgres:16-alpine
+    # No ports exposed — only accessible on the internal Docker network
+    environment:
+      POSTGRES_USER: ${DB_USER:-mcfgc}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      POSTGRES_DB: ${DB_NAME:-mcfgc}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - mcfgc-internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-mcfgc}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      target: runner
+    ports:
+      - "${APP_PORT:-3001}:3001"
+    env_file:
+      - .env.production
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - DATABASE_URL=postgresql://${DB_USER:-mcfgc}:${DB_PASSWORD:?DB_PASSWORD is required}@db:5432/${DB_NAME:-mcfgc}
+    networks:
+      - mcfgc-internal
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+networks:
+  mcfgc-internal:
+    driver: bridge
+    # Isolated network — no connection to other Docker containers
+
+volumes:
+  pgdata:
