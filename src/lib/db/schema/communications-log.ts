@@ -18,6 +18,7 @@ export const communicationsLog = pgTable("communications_log", {
     .notNull()
     .references(() => member.id),
   sentAt: timestamp("sent_at", { withTimezone: true }).notNull(),
+  emailProvider: text("email_provider").notNull().default("resend"),
   resendBatchId: text("resend_batch_id"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()

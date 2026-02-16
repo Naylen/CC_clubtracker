@@ -14,10 +14,11 @@ interface CreateCheckoutParams {
 
 /**
  * Create a Stripe Checkout session for membership renewal or new enrollment.
+ * Returns both the checkout URL and the Stripe session ID.
  */
 export async function createCheckoutSession(
   params: CreateCheckoutParams
-): Promise<string> {
+): Promise<{ url: string; sessionId: string }> {
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
     customer_email: params.customerEmail,
@@ -37,11 +38,20 @@ export async function createCheckoutSession(
     metadata: {
       membershipId: params.membershipId,
     },
-    success_url: `${process.env.BETTER_AUTH_URL}/member/dashboard?payment=success`,
+    success_url: `${process.env.BETTER_AUTH_URL}/member/dashboard?payment=success&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${process.env.BETTER_AUTH_URL}/member/dashboard?payment=cancelled`,
   });
 
-  return session.url!;
+  return { url: session.url!, sessionId: session.id };
+}
+
+/**
+ * Retrieve a Stripe Checkout session to verify payment status.
+ */
+export async function retrieveCheckoutSession(
+  sessionId: string
+): Promise<Stripe.Checkout.Session> {
+  return stripe.checkout.sessions.retrieve(sessionId);
 }
 
 /**

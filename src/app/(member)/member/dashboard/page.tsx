@@ -7,14 +7,15 @@ import { eq, desc } from "drizzle-orm";
 import { formatCurrency, formatDateET } from "@/lib/utils/dates";
 import { getPublicSignupEvent } from "@/actions/signup-events";
 import { getCurrentMembershipForPortal } from "@/actions/memberships";
+import { verifyAndActivatePayment } from "@/actions/payments";
 import { ApplicationStatusCard } from "@/components/member/ApplicationStatusCard";
 
 interface Props {
-  searchParams: Promise<{ payment?: string }>;
+  searchParams: Promise<{ payment?: string; session_id?: string }>;
 }
 
 export default async function MemberDashboard({ searchParams }: Props) {
-  const { payment } = await searchParams;
+  const { payment, session_id } = await searchParams;
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) redirect("/magic-link");
 
@@ -55,6 +56,12 @@ export default async function MemberDashboard({ searchParams }: Props) {
     .where(eq(member.householdId, memberRecord[0].householdId));
 
   const signupEvent = await getPublicSignupEvent();
+
+  // If returning from Stripe with a session ID, verify payment and activate
+  if (payment === "success" && session_id) {
+    await verifyAndActivatePayment(session_id);
+  }
+
   const currentMembership = await getCurrentMembershipForPortal(
     memberRecord[0].householdId
   );

@@ -33,6 +33,7 @@ export default async function BroadcastsPage() {
               <th className="px-4 py-3 font-medium text-gray-500">
                 Recipients
               </th>
+              <th className="px-4 py-3 font-medium text-gray-500">Via</th>
               <th className="px-4 py-3 font-medium text-gray-500">Filter</th>
             </tr>
           </thead>
@@ -46,6 +47,17 @@ export default async function BroadcastsPage() {
                 <td className="px-4 py-3 text-gray-600">
                   {b.recipientCount}
                 </td>
+                <td className="px-4 py-3">
+                  <span
+                    className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                      b.emailProvider === "gmail"
+                        ? "bg-red-100 text-red-700"
+                        : "bg-blue-100 text-blue-700"
+                    }`}
+                  >
+                    {b.emailProvider === "gmail" ? "Gmail" : "Resend"}
+                  </span>
+                </td>
                 <td className="px-4 py-3 text-xs text-gray-400">
                   {JSON.stringify(b.recipientFilter)}
                 </td>
@@ -54,7 +66,7 @@ export default async function BroadcastsPage() {
             {broadcasts.length === 0 && (
               <tr>
                 <td
-                  colSpan={4}
+                  colSpan={5}
                   className="px-4 py-8 text-center text-gray-500"
                 >
                   No broadcasts sent yet.

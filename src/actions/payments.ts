@@ -4,8 +4,8 @@ import { db } from "@/lib/db";
 import { payment, membership, member, household } from "@/lib/db/schema";
 import { recordPaymentSchema } from "@/lib/validators/payment";
 import { recordAudit } from "@/lib/utils/audit";
-import { createCheckoutSession } from "@/lib/stripe";
-import { eq, desc } from "drizzle-orm";
+import { createCheckoutSession, retrieveCheckoutSession } from "@/lib/stripe";
+import { eq, desc, and } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import type { ActionResult } from "@/types";
@@ -117,15 +117,7 @@ export async function createStripeCheckout(
       .where(eq(membershipYear.id, membershipRecord[0].membershipYearId))
       .limit(1);
 
-    // Create pending payment
-    await db.insert(payment).values({
-      membershipId,
-      amountCents: membershipRecord[0].priceCents,
-      method: "STRIPE",
-      status: "PENDING",
-    });
-
-    const checkoutUrl = await createCheckoutSession({
+    const { url, sessionId } = await createCheckoutSession({
       membershipId,
       householdName: householdRecord[0].name,
       amountCents: membershipRecord[0].priceCents,
@@ -133,7 +125,16 @@ export async function createStripeCheckout(
       customerEmail: householdRecord[0].email,
     });
 
-    return { success: true, data: { url: checkoutUrl } };
+    // Create pending payment with Stripe session ID for webhook/verification matching
+    await db.insert(payment).values({
+      membershipId,
+      amountCents: membershipRecord[0].priceCents,
+      method: "STRIPE",
+      status: "PENDING",
+      stripeSessionId: sessionId,
+    });
+
+    return { success: true, data: { url } };
   } catch (error) {
     return {
       success: false,
@@ -182,4 +183,97 @@ export async function getPaymentsByMembership(membershipId: string) {
     .from(payment)
     .where(eq(payment.membershipId, membershipId))
     .orderBy(desc(payment.createdAt));
+}
+
+/**
+ * Verify a Stripe Checkout session and activate the membership if paid.
+ * Called server-side when the user returns from Stripe with ?payment=success.
+ * This handles the case where the webhook hasn't fired yet (e.g., local dev).
+ * Idempotent — safe to call multiple times.
+ */
+export async function verifyAndActivatePayment(
+  stripeSessionId: string
+): Promise<void> {
+  try {
+    // Retrieve the session from Stripe to verify payment status
+    const stripeSession = await retrieveCheckoutSession(stripeSessionId);
+
+    if (stripeSession.payment_status !== "paid") {
+      return; // Not paid yet, do nothing
+    }
+
+    const membershipId = stripeSession.metadata?.membershipId;
+    if (!membershipId) return;
+
+    // Find the pending payment by Stripe session ID
+    const pendingPayment = await db
+      .select()
+      .from(payment)
+      .where(eq(payment.stripeSessionId, stripeSessionId))
+      .limit(1);
+
+    // Idempotency: if already succeeded, skip
+    if (pendingPayment[0]?.status === "SUCCEEDED") return;
+
+    if (pendingPayment[0]) {
+      // Update the pending payment to succeeded
+      await db
+        .update(payment)
+        .set({
+          status: "SUCCEEDED",
+          stripePaymentIntentId:
+            typeof stripeSession.payment_intent === "string"
+              ? stripeSession.payment_intent
+              : stripeSession.payment_intent?.id ?? null,
+          paidAt: new Date(),
+        })
+        .where(eq(payment.id, pendingPayment[0].id));
+    } else {
+      // No pending payment found — create one (webhook may have been missed entirely)
+      const membershipRecord = await db
+        .select()
+        .from(membership)
+        .where(eq(membership.id, membershipId))
+        .limit(1);
+
+      if (membershipRecord[0]) {
+        await db.insert(payment).values({
+          membershipId,
+          amountCents: membershipRecord[0].priceCents,
+          method: "STRIPE",
+          stripeSessionId,
+          stripePaymentIntentId:
+            typeof stripeSession.payment_intent === "string"
+              ? stripeSession.payment_intent
+              : stripeSession.payment_intent?.id ?? null,
+          status: "SUCCEEDED",
+          paidAt: new Date(),
+        });
+      }
+    }
+
+    // Activate the membership (idempotent — setting ACTIVE on already ACTIVE is fine)
+    await db
+      .update(membership)
+      .set({
+        status: "ACTIVE",
+        enrolledAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(membership.id, membershipId));
+
+    await recordAudit({
+      actorId: null,
+      actorType: "SYSTEM",
+      action: "membership.activate",
+      entityType: "membership",
+      entityId: membershipId,
+      metadata: {
+        trigger: "stripe_success_redirect",
+        stripeSessionId,
+      },
+    });
+  } catch (error) {
+    console.error("Failed to verify Stripe payment:", error);
+  }
 }

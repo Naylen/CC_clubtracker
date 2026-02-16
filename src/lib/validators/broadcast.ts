@@ -9,6 +9,7 @@ export const broadcastSchema = z.object({
       .optional(),
     year: z.number().int().optional(),
   }),
+  emailProvider: z.enum(["resend", "gmail"]).default("resend"),
 });
 
 export type BroadcastInput = z.infer<typeof broadcastSchema>;

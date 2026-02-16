@@ -1,6 +1,9 @@
 import { BroadcastForm } from "@/components/admin/BroadcastForm";
+import { getEmailProviders } from "@/actions/broadcasts";
 
-export default function NewBroadcastPage() {
+export default async function NewBroadcastPage() {
+  const providers = await getEmailProviders();
+
   return (
     <div>
       <h2 className="text-2xl font-bold text-gray-900">Compose Broadcast</h2>
@@ -9,7 +12,7 @@ export default function NewBroadcastPage() {
         groups.
       </p>
       <div className="mt-6">
-        <BroadcastForm />
+        <BroadcastForm providers={providers} />
       </div>
     </div>
   );

@@ -11,10 +11,12 @@ import {
 import { broadcastSchema } from "@/lib/validators/broadcast";
 import { recordAudit } from "@/lib/utils/audit";
 import { inngest } from "@/lib/inngest/client";
+import { getAvailableProviders } from "@/lib/email";
 import { eq, and, desc } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import type { ActionResult, RecipientFilter } from "@/types";
+import type { EmailProvider } from "@/lib/email";
 
 async function getAdminSession() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -95,6 +97,8 @@ export async function sendBroadcast(
       return { success: false, error: "No recipients match the filter" };
     }
 
+    const provider = data.emailProvider ?? "resend";
+
     // Create communications log entry
     const [logEntry] = await db
       .insert(communicationsLog)
@@ -105,6 +109,7 @@ export async function sendBroadcast(
         recipientCount: recipients.length,
         sentByAdminId: adminMember.id,
         sentAt: new Date(),
+        emailProvider: provider,
       })
       .returning({ id: communicationsLog.id });
 
@@ -116,6 +121,7 @@ export async function sendBroadcast(
         recipients,
         subject: data.subject,
         body: data.body,
+        emailProvider: provider,
       },
     });
 
@@ -159,4 +165,13 @@ export async function getRecipientCount(
 ): Promise<number> {
   const recipients = await resolveRecipients(filter);
   return recipients.length;
+}
+
+/**
+ * Get the list of configured email providers for the broadcast form.
+ */
+export async function getEmailProviders(): Promise<
+  { provider: EmailProvider; label: string }[]
+> {
+  return getAvailableProviders();
 }
