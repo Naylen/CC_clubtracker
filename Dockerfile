@@ -13,8 +13,8 @@ COPY . .
 
 # Development
 FROM base AS dev
-EXPOSE 3000
-CMD ["pnpm", "dev"]
+EXPOSE 3001
+CMD ["pnpm", "dev", "--port", "3001"]
 
 # Build
 FROM base AS builder
@@ -31,5 +31,5 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 
-EXPOSE 3000
+EXPOSE 3001
 CMD ["node", "server.js"]

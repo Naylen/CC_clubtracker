@@ -4,7 +4,7 @@ services:
       context: .
       target: dev
     ports:
-      - "3000:3000"
+      - "3001:3001"
     volumes:
       - .:/app
       - /app/node_modules
@@ -13,4 +13,5 @@ services:
       - .env.local
     environment:
       - WATCHPACK_POLLING=true
+      - PORT=3001
     restart: unless-stopped
