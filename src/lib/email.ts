@@ -1,7 +1,19 @@
 import { Resend } from "resend";
 import nodemailer from "nodemailer";
 
-export const resend = new Resend(process.env.RESEND_API_KEY);
+/**
+ * Lazy-initialized Resend client.
+ * Deferred so the module can be imported at build time without
+ * RESEND_API_KEY being present in the environment.
+ */
+let _resend: Resend | null = null;
+
+function getResend(): Resend {
+  if (!_resend) {
+    _resend = new Resend(process.env.RESEND_API_KEY);
+  }
+  return _resend;
+}
 
 /**
  * Derive the Resend "from" address from APP_DOMAIN (production)
@@ -67,7 +79,7 @@ export async function sendMagicLinkEmail(
   email: string,
   url: string
 ): Promise<void> {
-  await resend.emails.send({
+  await getResend().emails.send({
     from: getResendFromAddress(),
     to: email,
     subject: "MCFGC - Sign In Link",
@@ -90,7 +102,7 @@ export async function sendRenewalReminder(
   year: number,
   portalUrl: string
 ): Promise<void> {
-  await resend.emails.send({
+  await getResend().emails.send({
     from: getResendFromAddress(),
     to: email,
     subject: `MCFGC ${year} Membership Renewal`,
@@ -160,7 +172,7 @@ async function sendBroadcastViaResend(params: {
     html: params.html,
   }));
 
-  const result = await resend.batch.send(emails);
+  const result = await getResend().batch.send(emails);
   return result.data?.data?.[0]?.id;
 }
 
