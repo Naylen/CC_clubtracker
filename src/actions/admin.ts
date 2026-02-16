@@ -236,35 +236,71 @@ export async function setTempPassword(
       return { success: false, error: "Member has no email address" };
     }
 
-    // Find the Better Auth user by email
-    const { user } = await import("@/lib/db/schema");
-    const authUser = await db
-      .select()
-      .from(user)
-      .where(eq(user.email, target[0].email))
-      .limit(1);
-
-    if (!authUser[0]) {
-      return {
-        success: false,
-        error: "No auth account found for this member",
-      };
-    }
-
     // Hash the temp password using Better Auth's own hashPassword
     const { hashPassword } = await import("better-auth/crypto");
     const hashedPassword = await hashPassword(tempPassword);
 
-    // Update the credential account's password
-    await db
-      .update(account)
-      .set({ password: hashedPassword })
-      .where(
-        and(
-          eq(account.userId, authUser[0].id),
-          eq(account.providerId, "credential"),
-        ),
-      );
+    // Find or create the Better Auth user + credential account
+    const { user } = await import("@/lib/db/schema");
+    const { randomUUID } = await import("crypto");
+    let authUser = await db
+      .select()
+      .from(user)
+      .where(eq(user.email, target[0].email!))
+      .limit(1);
+
+    if (!authUser[0]) {
+      // No auth user exists — create one so the member can log in
+      const newUserId = randomUUID();
+      await db.insert(user).values({
+        id: newUserId,
+        name: `${target[0].firstName} ${target[0].lastName}`,
+        email: target[0].email!,
+        emailVerified: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      await db.insert(account).values({
+        id: randomUUID(),
+        accountId: newUserId,
+        providerId: "credential",
+        userId: newUserId,
+        password: hashedPassword,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    } else {
+      // Auth user exists — update the credential account's password
+      const existingAccount = await db
+        .select()
+        .from(account)
+        .where(
+          and(
+            eq(account.userId, authUser[0].id),
+            eq(account.providerId, "credential"),
+          ),
+        )
+        .limit(1);
+
+      if (existingAccount[0]) {
+        await db
+          .update(account)
+          .set({ password: hashedPassword })
+          .where(eq(account.id, existingAccount[0].id));
+      } else {
+        // User exists but no credential account — create one
+        await db.insert(account).values({
+          id: randomUUID(),
+          accountId: authUser[0].id,
+          providerId: "credential",
+          userId: authUser[0].id,
+          password: hashedPassword,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+      }
+    }
 
     // Set the mustChangePassword flag
     await db

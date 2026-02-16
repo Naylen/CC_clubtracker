@@ -208,6 +208,7 @@ const publicSignupSchema = z.object({
   lastName: z.string().min(1, "Last name is required"),
   email: z.email("Valid email is required"),
   dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
+  driverLicense: z.string().min(1, "Driver license number is required"),
   isVeteranDisabled: z.boolean().default(false),
   addressLine1: z.string().min(1, "Address is required"),
   addressLine2: z.string().optional(),
@@ -217,16 +218,72 @@ const publicSignupSchema = z.object({
   phone: z.string().optional(),
 });
 
+const ALLOWED_VETERAN_DOC_TYPES = [
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+];
+const MAX_VETERAN_DOC_SIZE = 5 * 1024 * 1024; // 5MB
+
 /**
  * Public sign-up day registration.
+ * Accepts FormData with text fields + optional veteran doc file.
  * Validates that sign-up day is active, checks capacity, then creates
  * household + member + NEW_PENDING membership.
+ * Driver license is encrypted at rest. Veteran doc is encrypted at rest.
  */
 export async function signupNewMember(
-  input: unknown,
-): Promise<ActionResult<{ memberId: string }>> {
+  formData: FormData,
+): Promise<ActionResult<{ memberId: string; email: string }>> {
   try {
-    const data = publicSignupSchema.parse(input);
+    // Extract text fields from FormData
+    const rawData = {
+      firstName: formData.get("firstName") as string,
+      lastName: formData.get("lastName") as string,
+      email: formData.get("email") as string,
+      dateOfBirth: formData.get("dateOfBirth") as string,
+      driverLicense: formData.get("driverLicense") as string,
+      isVeteranDisabled: formData.get("isVeteranDisabled") === "on",
+      addressLine1: formData.get("addressLine1") as string,
+      addressLine2: (formData.get("addressLine2") as string) || undefined,
+      city: formData.get("city") as string,
+      state: formData.get("state") as string,
+      zip: formData.get("zip") as string,
+      phone: (formData.get("phone") as string) || undefined,
+    };
+
+    const data = publicSignupSchema.parse(rawData);
+
+    // Handle veteran doc file if present
+    const veteranDocFile = formData.get("veteranDoc") as File | null;
+    let veteranDocEncrypted: string | null = null;
+    let veteranDocFilename: string | null = null;
+    let veteranDocMimeType: string | null = null;
+
+    if (data.isVeteranDisabled && veteranDocFile && veteranDocFile.size > 0) {
+      if (!ALLOWED_VETERAN_DOC_TYPES.includes(veteranDocFile.type)) {
+        return {
+          success: false,
+          error: "Veteran document must be PDF, JPG, or PNG.",
+        };
+      }
+      if (veteranDocFile.size > MAX_VETERAN_DOC_SIZE) {
+        return {
+          success: false,
+          error: "Veteran document must be under 5MB.",
+        };
+      }
+
+      const { encryptBuffer } = await import("@/lib/utils/encryption");
+      const fileBuffer = Buffer.from(await veteranDocFile.arrayBuffer());
+      veteranDocEncrypted = encryptBuffer(fileBuffer);
+      veteranDocFilename = veteranDocFile.name;
+      veteranDocMimeType = veteranDocFile.type;
+    }
+
+    // Encrypt driver license
+    const { encryptField } = await import("@/lib/utils/encryption");
+    const driverLicenseEncrypted = encryptField(data.driverLicense);
 
     // Verify sign-up day is active
     const event = await getPublicSignupEvent();
@@ -295,7 +352,7 @@ export async function signupNewMember(
       })
       .returning({ id: household.id });
 
-    // Create primary member
+    // Create primary member with encrypted data included in the initial insert
     const [createdMember] = await db
       .insert(member)
       .values({
@@ -306,6 +363,10 @@ export async function signupNewMember(
         dateOfBirth: data.dateOfBirth,
         role: "PRIMARY",
         isVeteranDisabled: data.isVeteranDisabled,
+        driverLicenseEncrypted,
+        veteranDocEncrypted,
+        veteranDocFilename,
+        veteranDocMimeType,
       })
       .returning({ id: member.id });
 
@@ -330,10 +391,48 @@ export async function signupNewMember(
         name: `${data.firstName} ${data.lastName}`,
         email: data.email,
         householdId: createdHousehold.id,
+        hasVeteranDoc: !!veteranDocEncrypted,
       },
     });
 
-    return { success: true, data: { memberId: createdMember.id } };
+    // Create Better Auth user + credential account so the member can log in
+    const password = formData.get("password") as string | null;
+    if (password && password.length >= 8) {
+      try {
+        const { hashPassword } = await import("better-auth/crypto");
+        const { user: userTable, account: accountTable } = await import(
+          "@/lib/db/schema"
+        );
+        const { randomUUID } = await import("crypto");
+
+        const hashedPassword = await hashPassword(password);
+        const newUserId = randomUUID();
+
+        await db.insert(userTable).values({
+          id: newUserId,
+          name: `${data.firstName} ${data.lastName}`,
+          email: data.email,
+          emailVerified: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+
+        await db.insert(accountTable).values({
+          id: randomUUID(),
+          accountId: newUserId,
+          providerId: "credential",
+          userId: newUserId,
+          password: hashedPassword,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+      } catch {
+        // Auth account creation is non-critical — signup still succeeds
+        console.error("Failed to create auth account during signup");
+      }
+    }
+
+    return { success: true, data: { memberId: createdMember.id, email: data.email } };
   } catch (error) {
     return {
       success: false,

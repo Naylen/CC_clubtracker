@@ -5,6 +5,8 @@ import { getMembershipsByHousehold } from "@/actions/memberships";
 import { HouseholdForm } from "@/components/admin/HouseholdForm";
 import { AddHouseholdMemberForm } from "@/components/admin/AddHouseholdMemberForm";
 import { SetTempPasswordForm } from "@/components/admin/SetTempPasswordForm";
+import { DriverLicenseReveal } from "@/components/admin/DriverLicenseReveal";
+import { VeteranDocViewer } from "@/components/admin/VeteranDocViewer";
 import { formatCurrency, formatDateET } from "@/lib/utils/dates";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
@@ -144,6 +146,43 @@ export default async function MemberDetailPage({ params }: Props) {
           <HouseholdForm household={household} />
         </div>
       </section>
+
+      {/* Sensitive Information (Admin only) */}
+      {(memberRecord.driverLicenseEncrypted || memberRecord.veteranDocEncrypted) && (
+        <section className="rounded-lg border border-amber-200 bg-amber-50 p-6">
+          <h3 className="text-lg font-semibold text-amber-900">
+            Sensitive Information
+          </h3>
+          <p className="mt-1 text-xs text-amber-700">
+            Encrypted at rest. Access is logged in the audit trail.
+          </p>
+          <div className="mt-4 space-y-4">
+            {memberRecord.driverLicenseEncrypted && (
+              <div>
+                <dt className="text-sm font-medium text-gray-700">
+                  Driver License
+                </dt>
+                <dd className="mt-1">
+                  <DriverLicenseReveal memberId={memberRecord.id} />
+                </dd>
+              </div>
+            )}
+            {memberRecord.veteranDocFilename && (
+              <div>
+                <dt className="text-sm font-medium text-gray-700">
+                  Veteran Documentation
+                </dt>
+                <dd className="mt-1">
+                  <VeteranDocViewer
+                    memberId={memberRecord.id}
+                    filename={memberRecord.veteranDocFilename}
+                  />
+                </dd>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* Temp Password (SUPER_ADMIN only) */}
       {await (async () => {

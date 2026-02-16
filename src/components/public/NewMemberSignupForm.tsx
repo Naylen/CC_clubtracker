@@ -1,40 +1,73 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { signupNewMember } from "@/actions/signup-events";
+import { signIn } from "@/lib/auth-client";
 
 export function NewMemberSignupForm() {
+  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isVeteran, setIsVeteran] = useState(false);
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+
+    // Validate password
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
-    const data = {
-      firstName: formData.get("firstName") as string,
-      lastName: formData.get("lastName") as string,
-      email: formData.get("email") as string,
-      dateOfBirth: formData.get("dateOfBirth") as string,
-      isVeteranDisabled: formData.get("isVeteranDisabled") === "on",
-      addressLine1: formData.get("addressLine1") as string,
-      addressLine2: (formData.get("addressLine2") as string) || undefined,
-      city: formData.get("city") as string,
-      state: formData.get("state") as string,
-      zip: formData.get("zip") as string,
-      phone: (formData.get("phone") as string) || undefined,
-    };
 
-    const result = await signupNewMember(data);
+    // Append password to FormData (not a native form field to avoid browser autofill issues)
+    formData.set("password", password);
 
-    setLoading(false);
+    // Validate veteran doc if veteran is checked
+    if (isVeteran) {
+      const veteranDoc = formData.get("veteranDoc") as File | null;
+      if (!veteranDoc || veteranDoc.size === 0) {
+        setError("Please upload proof of disabled veteran status.");
+        setLoading(false);
+        return;
+      }
+      if (veteranDoc.size > 5 * 1024 * 1024) {
+        setError("Veteran document must be under 5MB.");
+        setLoading(false);
+        return;
+      }
+    }
+
+    const result = await signupNewMember(formData);
 
     if (result.success) {
-      setSuccess(true);
+      // Auto-login and redirect to member portal
+      try {
+        await signIn.email({
+          email: result.data.email,
+          password,
+        });
+        router.push("/member/dashboard");
+        return;
+      } catch {
+        // If auto-login fails, show success with login link
+        setLoading(false);
+        setSuccess(true);
+      }
     } else {
+      setLoading(false);
       setError(result.error);
     }
   }
@@ -47,7 +80,11 @@ export function NewMemberSignupForm() {
         </h3>
         <p className="mt-2 text-sm text-green-700">
           Thank you for registering. Your application is pending review by a
-          club officer. You will be contacted at the email you provided.
+          club officer. You can check your application status by{" "}
+          <a href="/login" className="font-medium underline">
+            logging in
+          </a>{" "}
+          to your account.
         </p>
       </div>
     );
@@ -113,15 +150,90 @@ export function NewMemberSignupForm() {
           />
         </div>
 
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Driver License Number
+          </label>
+          <input
+            name="driverLicense"
+            required
+            placeholder="e.g. K12-345-678"
+            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            Required for membership verification. This information is encrypted
+            and stored securely.
+          </p>
+        </div>
+
         <div className="flex items-center gap-2">
           <input
             name="isVeteranDisabled"
             type="checkbox"
+            checked={isVeteran}
+            onChange={(e) => setIsVeteran(e.target.checked)}
             className="h-4 w-4 rounded border-gray-300"
           />
           <label className="text-sm font-medium text-gray-700">
-            Disabled Veteran ($100 discount)
+            Disabled Veteran (discount eligible)
           </label>
+        </div>
+
+        {isVeteran && (
+          <div className="rounded-md border border-green-200 bg-green-50 p-4">
+            <label className="block text-sm font-medium text-green-800">
+              Upload Proof of Disabled Veteran Status
+            </label>
+            <p className="mt-1 text-xs text-green-700">
+              DD-214, VA letter, or other official documentation. PDF, JPG, or
+              PNG. Max 5MB.
+            </p>
+            <input
+              name="veteranDoc"
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png"
+              required
+              className="mt-2 w-full text-sm file:mr-4 file:rounded-md file:border-0 file:bg-green-100 file:px-4 file:py-2 file:text-sm file:font-medium file:text-green-700 hover:file:bg-green-200"
+            />
+          </div>
+        )}
+      </fieldset>
+
+      <fieldset className="space-y-4">
+        <legend className="text-lg font-semibold text-gray-900">
+          Create Your Account Password
+        </legend>
+        <p className="text-sm text-gray-500">
+          Set a password so you can log in and check your application status.
+        </p>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Password
+          </label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            minLength={8}
+            placeholder="Minimum 8 characters"
+            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Confirm Password
+          </label>
+          <input
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            required
+            minLength={8}
+            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+          />
         </div>
       </fieldset>
 

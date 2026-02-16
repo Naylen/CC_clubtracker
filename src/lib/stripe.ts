@@ -38,7 +38,7 @@ export async function createCheckoutSession(
       membershipId: params.membershipId,
     },
     success_url: `${process.env.BETTER_AUTH_URL}/member/dashboard?payment=success`,
-    cancel_url: `${process.env.BETTER_AUTH_URL}/member/renew?payment=cancelled`,
+    cancel_url: `${process.env.BETTER_AUTH_URL}/member/dashboard?payment=cancelled`,
   });
 
   return session.url!;

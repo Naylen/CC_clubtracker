@@ -40,6 +40,10 @@ export const member = pgTable("member", {
   isAdmin: boolean("is_admin").notNull().default(false),
   adminRole: adminRoleEnum("admin_role"),
   mustChangePassword: boolean("must_change_password").notNull().default(false),
+  driverLicenseEncrypted: text("driver_license_encrypted"),
+  veteranDocEncrypted: text("veteran_doc_encrypted"),
+  veteranDocFilename: text("veteran_doc_filename"),
+  veteranDocMimeType: text("veteran_doc_mime_type"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

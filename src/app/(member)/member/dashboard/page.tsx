@@ -6,8 +6,15 @@ import { member, household, membership } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { formatCurrency, formatDateET } from "@/lib/utils/dates";
 import { getPublicSignupEvent } from "@/actions/signup-events";
+import { getCurrentMembershipForPortal } from "@/actions/memberships";
+import { ApplicationStatusCard } from "@/components/member/ApplicationStatusCard";
 
-export default async function MemberDashboard() {
+interface Props {
+  searchParams: Promise<{ payment?: string }>;
+}
+
+export default async function MemberDashboard({ searchParams }: Props) {
+  const { payment } = await searchParams;
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) redirect("/magic-link");
 
@@ -48,6 +55,9 @@ export default async function MemberDashboard() {
     .where(eq(member.householdId, memberRecord[0].householdId));
 
   const signupEvent = await getPublicSignupEvent();
+  const currentMembership = await getCurrentMembershipForPortal(
+    memberRecord[0].householdId
+  );
 
   return (
     <div className="space-y-8">
@@ -59,6 +69,34 @@ export default async function MemberDashboard() {
           {householdRecord[0]?.name} household
         </p>
       </div>
+
+      {/* Payment result banners */}
+      {payment === "success" && (
+        <div className="rounded-lg border-2 border-green-300 bg-green-50 p-4">
+          <p className="font-medium text-green-800">
+            Payment successful! Your membership is now active.
+          </p>
+        </div>
+      )}
+      {payment === "cancelled" && (
+        <div className="rounded-lg border-2 border-yellow-300 bg-yellow-50 p-4">
+          <p className="font-medium text-yellow-800">
+            Payment was cancelled. You can try again when ready.
+          </p>
+        </div>
+      )}
+
+      {/* Application Status Card */}
+      {currentMembership && (
+        <ApplicationStatusCard
+          membershipId={currentMembership.id}
+          status={currentMembership.status}
+          priceCents={currentMembership.priceCents}
+          discountType={currentMembership.discountType}
+          membershipTierId={currentMembership.membershipTierId}
+          tierName={currentMembership.tierName}
+        />
+      )}
 
       {/* Sign-Up Day - Only shown when admin enables visibility */}
       {signupEvent && (

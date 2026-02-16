@@ -188,11 +188,13 @@ export async function getPendingApplications() {
       householdId: membership.householdId,
       householdName: household.name,
       householdEmail: household.email,
+      memberId: member.id,
       memberFirstName: member.firstName,
       memberLastName: member.lastName,
       memberEmail: member.email,
       dateOfBirth: member.dateOfBirth,
       isVeteranDisabled: member.isVeteranDisabled,
+      veteranDocFilename: member.veteranDocFilename,
       createdAt: membership.createdAt,
       membershipYearId: membership.membershipYearId,
     })
@@ -414,4 +416,46 @@ export async function rejectApplication(
       error: error instanceof Error ? error.message : "Unknown error",
     };
   }
+}
+
+/**
+ * Get the current membership for the member portal.
+ * Finds the membership for the current year and returns status/pricing info.
+ */
+export async function getCurrentMembershipForPortal(householdId: string) {
+  const currentYear = new Date().getFullYear();
+
+  // Get the current membership year
+  const yearRecord = await db
+    .select()
+    .from(membershipYear)
+    .where(eq(membershipYear.year, currentYear))
+    .limit(1);
+
+  if (!yearRecord[0]) return null;
+
+  const result = await db
+    .select({
+      id: membership.id,
+      status: membership.status,
+      priceCents: membership.priceCents,
+      discountType: membership.discountType,
+      membershipTierId: membership.membershipTierId,
+      enrolledAt: membership.enrolledAt,
+      tierName: membershipTier.name,
+    })
+    .from(membership)
+    .leftJoin(
+      membershipTier,
+      eq(membership.membershipTierId, membershipTier.id)
+    )
+    .where(
+      and(
+        eq(membership.householdId, householdId),
+        eq(membership.membershipYearId, yearRecord[0].id)
+      )
+    )
+    .limit(1);
+
+  return result[0] ?? null;
 }

@@ -3,15 +3,19 @@ import {
   getApprovedAwaitingPayment,
 } from "@/actions/memberships";
 import { getMembershipTiers } from "@/actions/membership-tiers";
+import { getCurrentMembershipYear } from "@/actions/membership-years";
 import { ApplicationQueue } from "@/components/admin/ApplicationQueue";
 import { ApprovedApplications } from "@/components/admin/ApprovedApplications";
 
 export default async function ApplicationsPage() {
-  const [pendingApps, approvedApps, tiers] = await Promise.all([
+  const [pendingApps, approvedApps, tiers, currentYear] = await Promise.all([
     getPendingApplications(),
     getApprovedAwaitingPayment(),
     getMembershipTiers(),
+    getCurrentMembershipYear(),
   ]);
+
+  const membershipYear = currentYear?.year ?? new Date().getFullYear();
 
   return (
     <div className="space-y-8">
@@ -38,7 +42,11 @@ export default async function ApplicationsPage() {
           New applications that need tier assignment and approval.
         </p>
         <div className="mt-4">
-          <ApplicationQueue applications={pendingApps} tiers={tiers} />
+          <ApplicationQueue
+            applications={pendingApps}
+            tiers={tiers}
+            membershipYear={membershipYear}
+          />
         </div>
       </section>
 
