@@ -9,7 +9,7 @@ import { randomUUID } from "crypto";
  *
  * Reads ADMIN_EMAIL, ADMIN_PASSWORD, and ADMIN_NAME from the environment.
  * If no admin member exists in the database, creates:
- *   1. A Better Auth user + account (with bcrypt-hashed password)
+ *   1. A Better Auth user + account (password hashed via Better Auth's own hashPassword)
  *   2. A household for the admin
  *   3. A member record with isAdmin=true and adminRole=SUPER_ADMIN
  *
@@ -53,15 +53,11 @@ export async function seedAdmin(): Promise<void> {
       authUserId = existingUser[0].id;
       console.log("[seed-admin] Auth user already exists, reusing.");
     } else {
-      // Hash password using Better Auth's internal hashing
-      // Better Auth uses bcrypt via the scrypt adapter by default,
-      // but we can use the native Node.js crypto for a simple hash
-      const { scrypt, randomBytes } = await import("crypto");
-      const { promisify } = await import("util");
-      const scryptAsync = promisify(scrypt);
-      const salt = randomBytes(16).toString("hex");
-      const derivedKey = (await scryptAsync(password, salt, 64)) as Buffer;
-      const hashedPassword = `${salt}:${derivedKey.toString("hex")}`;
+      // Use Better Auth's own hashPassword to ensure compatibility
+      // This uses @noble/hashes/scrypt with the exact params Better Auth expects:
+      // N=16384, r=16, p=1, dkLen=64, output format: "hexSalt:hexKey"
+      const { hashPassword } = await import("better-auth/crypto");
+      const hashedPassword = await hashPassword(password);
 
       // Create Better Auth user directly in DB
       authUserId = randomUUID();
@@ -85,7 +81,7 @@ export async function seedAdmin(): Promise<void> {
         updatedAt: new Date(),
       });
 
-      console.log("[seed-admin] Auth user created.");
+      console.log("[seed-admin] Auth user created with Better Auth password hash.");
     }
 
     // Check if household already exists for this email
