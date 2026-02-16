@@ -8,6 +8,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { household } from "./household";
 import { membershipYear } from "./membership-year";
+import { membershipTier } from "./membership-tier";
 
 export const membershipStatusEnum = pgEnum("membership_status", [
   "PENDING_RENEWAL",
@@ -35,6 +36,10 @@ export const membership = pgTable(
     status: membershipStatusEnum("status").notNull(),
     priceCents: integer("price_cents").notNull(),
     discountType: discountTypeEnum("discount_type").notNull().default("NONE"),
+    membershipTierId: uuid("membership_tier_id").references(
+      () => membershipTier.id,
+      { onDelete: "set null" }
+    ),
     enrolledAt: timestamp("enrolled_at", { withTimezone: true }),
     lapsedAt: timestamp("lapsed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })

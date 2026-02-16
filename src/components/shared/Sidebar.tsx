@@ -12,6 +12,8 @@ import {
   Mail,
   ClipboardList,
   ShieldCheck,
+  Tag,
+  ClipboardCheck,
 } from "lucide-react";
 
 const navItems = [
@@ -23,6 +25,12 @@ const navItems = [
     label: "Membership Years",
     icon: Calendar,
   },
+  {
+    href: "/admin/membership-tiers",
+    label: "Membership Tiers",
+    icon: Tag,
+  },
+  { href: "/admin/applications", label: "Applications", icon: ClipboardCheck },
   { href: "/admin/payments", label: "Payments", icon: CreditCard },
   { href: "/admin/broadcasts", label: "Broadcasts", icon: Mail },
   { href: "/admin/audit-log", label: "Audit Log", icon: ClipboardList },

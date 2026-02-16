@@ -38,6 +38,7 @@ export async function recordPayment(
         membershipId: data.membershipId,
         amountCents: data.amountCents,
         method: data.method,
+        checkNumber: data.method === "CHECK" ? data.checkNumber ?? null : null,
         recordedByAdminId: adminMember.id,
         status: "SUCCEEDED",
         paidAt: new Date(),
@@ -64,6 +65,7 @@ export async function recordPayment(
         membershipId: data.membershipId,
         amountCents: data.amountCents,
         method: data.method,
+        ...(data.checkNumber ? { checkNumber: data.checkNumber } : {}),
       },
     });
 
@@ -141,7 +143,37 @@ export async function createStripeCheckout(
 }
 
 export async function getPayments() {
-  return db.select().from(payment).orderBy(desc(payment.createdAt));
+  const { membershipYear } = await import("@/lib/db/schema");
+  const { sql } = await import("drizzle-orm");
+
+  // Join payment → membership → household for household name
+  // Also join member for recorded-by admin name
+  const rows = await db
+    .select({
+      id: payment.id,
+      membershipId: payment.membershipId,
+      amountCents: payment.amountCents,
+      method: payment.method,
+      checkNumber: payment.checkNumber,
+      stripeSessionId: payment.stripeSessionId,
+      status: payment.status,
+      paidAt: payment.paidAt,
+      createdAt: payment.createdAt,
+      householdName: household.name,
+      recordedByName: sql<string | null>`
+        CASE WHEN ${member.id} IS NOT NULL
+          THEN ${member.firstName} || ' ' || ${member.lastName}
+          ELSE NULL
+        END
+      `,
+    })
+    .from(payment)
+    .leftJoin(membership, eq(payment.membershipId, membership.id))
+    .leftJoin(household, eq(membership.householdId, household.id))
+    .leftJoin(member, eq(payment.recordedByAdminId, member.id))
+    .orderBy(desc(payment.createdAt));
+
+  return rows;
 }
 
 export async function getPaymentsByMembership(membershipId: string) {

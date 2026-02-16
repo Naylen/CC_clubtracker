@@ -1,12 +1,18 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { membership, member, membershipYear } from "@/lib/db/schema";
+import {
+  membership,
+  member,
+  membershipYear,
+  household,
+  membershipTier,
+} from "@/lib/db/schema";
 import { enrollMemberSchema } from "@/lib/validators/membership";
 import { recordAudit } from "@/lib/utils/audit";
 import { checkCapacity } from "@/lib/utils/capacity";
-import { calculatePrice } from "@/lib/utils/pricing";
-import { eq, and, desc } from "drizzle-orm";
+import { calculatePrice, calculatePriceWithTier } from "@/lib/utils/pricing";
+import { eq, and, desc, isNull } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import type { ActionResult } from "@/types";
@@ -170,4 +176,242 @@ export async function getMembershipForMember(
     )
     .limit(1);
   return result[0] ?? null;
+}
+
+/**
+ * Get pending applications — NEW_PENDING with no tier assigned.
+ */
+export async function getPendingApplications() {
+  const rows = await db
+    .select({
+      membershipId: membership.id,
+      householdId: membership.householdId,
+      householdName: household.name,
+      householdEmail: household.email,
+      memberFirstName: member.firstName,
+      memberLastName: member.lastName,
+      memberEmail: member.email,
+      dateOfBirth: member.dateOfBirth,
+      isVeteranDisabled: member.isVeteranDisabled,
+      createdAt: membership.createdAt,
+      membershipYearId: membership.membershipYearId,
+    })
+    .from(membership)
+    .innerJoin(household, eq(membership.householdId, household.id))
+    .innerJoin(
+      member,
+      and(
+        eq(member.householdId, household.id),
+        eq(member.role, "PRIMARY")
+      )
+    )
+    .where(
+      and(
+        eq(membership.status, "NEW_PENDING"),
+        isNull(membership.membershipTierId)
+      )
+    )
+    .orderBy(membership.createdAt);
+
+  return rows;
+}
+
+/**
+ * Get approved applications — NEW_PENDING with tier assigned, awaiting payment.
+ */
+export async function getApprovedAwaitingPayment() {
+  const rows = await db
+    .select({
+      membershipId: membership.id,
+      householdId: membership.householdId,
+      householdName: household.name,
+      householdEmail: household.email,
+      memberFirstName: member.firstName,
+      memberLastName: member.lastName,
+      priceCents: membership.priceCents,
+      discountType: membership.discountType,
+      tierName: membershipTier.name,
+      membershipTierId: membership.membershipTierId,
+      createdAt: membership.createdAt,
+    })
+    .from(membership)
+    .innerJoin(household, eq(membership.householdId, household.id))
+    .innerJoin(
+      member,
+      and(
+        eq(member.householdId, household.id),
+        eq(member.role, "PRIMARY")
+      )
+    )
+    .leftJoin(
+      membershipTier,
+      eq(membership.membershipTierId, membershipTier.id)
+    )
+    .where(
+      and(
+        eq(membership.status, "NEW_PENDING"),
+        membership.membershipTierId !== null
+          ? eq(membership.membershipTierId, membership.membershipTierId)
+          : undefined
+      )
+    )
+    .orderBy(membership.createdAt);
+
+  // Filter to only those with a tier assigned (non-null membershipTierId)
+  return rows.filter((r) => r.membershipTierId !== null);
+}
+
+/**
+ * Approve an application by assigning a membership tier.
+ * Calculates price based on the tier + veteran/senior discounts.
+ */
+export async function approveApplication(
+  membershipId: string,
+  membershipTierId: string
+): Promise<ActionResult> {
+  try {
+    const { adminMember } = await getAdminSession();
+
+    // Get the membership
+    const membershipRecord = await db
+      .select()
+      .from(membership)
+      .where(eq(membership.id, membershipId))
+      .limit(1);
+
+    if (!membershipRecord[0]) {
+      return { success: false, error: "Membership not found" };
+    }
+
+    // Get the tier
+    const tier = await db
+      .select()
+      .from(membershipTier)
+      .where(eq(membershipTier.id, membershipTierId))
+      .limit(1);
+
+    if (!tier[0]) {
+      return { success: false, error: "Membership tier not found" };
+    }
+
+    // Get the primary member for pricing discounts
+    const primaryMember = await db
+      .select()
+      .from(member)
+      .where(
+        and(
+          eq(member.householdId, membershipRecord[0].householdId),
+          eq(member.role, "PRIMARY")
+        )
+      )
+      .limit(1);
+
+    if (!primaryMember[0]) {
+      return { success: false, error: "Primary member not found" };
+    }
+
+    // Get the membership year
+    const year = await db
+      .select()
+      .from(membershipYear)
+      .where(eq(membershipYear.id, membershipRecord[0].membershipYearId))
+      .limit(1);
+
+    // Calculate price with tier + discounts
+    const pricing = calculatePriceWithTier({
+      tierPriceCents: tier[0].priceCents,
+      dateOfBirth: primaryMember[0].dateOfBirth,
+      isVeteranDisabled: primaryMember[0].isVeteranDisabled,
+      membershipYear: year[0]?.year ?? new Date().getFullYear(),
+    });
+
+    // Update the membership with tier assignment and calculated price
+    await db
+      .update(membership)
+      .set({
+        membershipTierId,
+        priceCents: pricing.priceCents,
+        discountType: pricing.discountType,
+      })
+      .where(eq(membership.id, membershipId));
+
+    await recordAudit({
+      actorId: adminMember.id,
+      actorType: "ADMIN",
+      action: "application.approve",
+      entityType: "membership",
+      entityId: membershipId,
+      metadata: {
+        tierName: tier[0].name,
+        priceCents: pricing.priceCents,
+        discountType: pricing.discountType,
+      },
+    });
+
+    return { success: true, data: undefined };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+/**
+ * Reject an application — deletes the membership, household, and member records.
+ */
+export async function rejectApplication(
+  membershipId: string
+): Promise<ActionResult> {
+  try {
+    const { adminMember } = await getAdminSession();
+
+    // Get the membership to find the household
+    const membershipRecord = await db
+      .select()
+      .from(membership)
+      .where(eq(membership.id, membershipId))
+      .limit(1);
+
+    if (!membershipRecord[0]) {
+      return { success: false, error: "Membership not found" };
+    }
+
+    const householdId = membershipRecord[0].householdId;
+
+    // Get household name for audit
+    const householdRecord = await db
+      .select()
+      .from(household)
+      .where(eq(household.id, householdId))
+      .limit(1);
+
+    // Delete the membership first (FK constraint)
+    await db.delete(membership).where(eq(membership.id, membershipId));
+
+    // Delete members in the household
+    await db.delete(member).where(eq(member.householdId, householdId));
+
+    // Delete the household
+    await db.delete(household).where(eq(household.id, householdId));
+
+    await recordAudit({
+      actorId: adminMember.id,
+      actorType: "ADMIN",
+      action: "application.reject",
+      entityType: "membership",
+      entityId: membershipId,
+      metadata: {
+        householdName: householdRecord[0]?.name ?? "Unknown",
+        householdId,
+      },
+    });
+
+    return { success: true, data: undefined };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
 }

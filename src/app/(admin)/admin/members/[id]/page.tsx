@@ -4,8 +4,14 @@ import { getHouseholdById } from "@/actions/households";
 import { getMembershipsByHousehold } from "@/actions/memberships";
 import { HouseholdForm } from "@/components/admin/HouseholdForm";
 import { AddHouseholdMemberForm } from "@/components/admin/AddHouseholdMemberForm";
+import { SetTempPasswordForm } from "@/components/admin/SetTempPasswordForm";
 import { formatCurrency, formatDateET } from "@/lib/utils/dates";
 import Link from "next/link";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
+import { db } from "@/lib/db";
+import { member } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -138,6 +144,32 @@ export default async function MemberDetailPage({ params }: Props) {
           <HouseholdForm household={household} />
         </div>
       </section>
+
+      {/* Temp Password (SUPER_ADMIN only) */}
+      {await (async () => {
+        const session = await auth.api.getSession({ headers: await headers() });
+        if (!session) return null;
+        const currentAdmin = await db
+          .select()
+          .from(member)
+          .where(eq(member.email, session.user.email))
+          .limit(1);
+        if (currentAdmin[0]?.adminRole !== "SUPER_ADMIN") return null;
+        if (!memberRecord.email) return null;
+        return (
+          <section>
+            <h3 className="text-lg font-semibold text-gray-900">
+              Password Management
+            </h3>
+            <div className="mt-4 max-w-md">
+              <SetTempPasswordForm
+                memberId={memberRecord.id}
+                memberName={`${memberRecord.firstName} ${memberRecord.lastName}`}
+              />
+            </div>
+          </section>
+        );
+      })()}
 
       {/* Membership History */}
       <section>

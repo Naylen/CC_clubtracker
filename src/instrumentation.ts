@@ -48,5 +48,15 @@ export async function register() {
         }
       }
     }
+
+    // Seed default membership tiers
+    try {
+      const { seedMembershipTiers } = await import(
+        "@/lib/db/seed-membership-tiers"
+      );
+      await seedMembershipTiers();
+    } catch (error) {
+      console.error("[init] Membership tier seed failed:", error);
+    }
   }
 }

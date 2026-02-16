@@ -1,7 +1,10 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Header } from "@/components/shared/Header";
 import { useSession } from "@/lib/auth-client";
+import { checkMustChangePassword } from "@/actions/auth";
 
 export default function MemberLayout({
   children,
@@ -9,6 +12,15 @@ export default function MemberLayout({
   children: React.ReactNode;
 }) {
   const { data: session } = useSession();
+  const router = useRouter();
+
+  useEffect(() => {
+    checkMustChangePassword().then((mustChange) => {
+      if (mustChange) {
+        router.replace("/change-password");
+      }
+    });
+  }, [router]);
 
   return (
     <div className="flex min-h-screen flex-col">

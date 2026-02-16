@@ -309,21 +309,15 @@ export async function signupNewMember(
       })
       .returning({ id: member.id });
 
-    // Determine price
-    const basePriceCents = 20000; // $200
-    const veteranDiscountCents = 10000; // $100
-    const priceCents = data.isVeteranDisabled
-      ? basePriceCents - veteranDiscountCents
-      : basePriceCents;
-    const discountType = data.isVeteranDisabled ? "VETERAN" : "NONE";
-
-    // Create NEW_PENDING membership
+    // Create NEW_PENDING membership with no tier assigned
+    // Price is 0 until admin assigns a tier during review
     await db.insert(membership).values({
       householdId: createdHousehold.id,
       membershipYearId: yearRecord[0].id,
       status: "NEW_PENDING",
-      priceCents,
-      discountType,
+      priceCents: 0,
+      discountType: "NONE",
+      membershipTierId: null,
     });
 
     await recordAudit({

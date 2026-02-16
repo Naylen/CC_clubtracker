@@ -39,6 +39,7 @@ export const member = pgTable("member", {
   isVeteranDisabled: boolean("is_veteran_disabled").notNull().default(false),
   isAdmin: boolean("is_admin").notNull().default(false),
   adminRole: adminRoleEnum("admin_role"),
+  mustChangePassword: boolean("must_change_password").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

@@ -42,6 +42,42 @@ export function calculatePrice(input: PricingInput): PricingResult {
 }
 
 /**
+ * Tier-aware pricing: applies veteran/senior discounts to a tier's base price.
+ *
+ * If the member qualifies for a discount, the price is the minimum of:
+ * - The tier's base price
+ * - The legacy discounted price ($100)
+ * This ensures discounts never increase the price above the tier base.
+ */
+interface TierPricingInput {
+  tierPriceCents: number;
+  dateOfBirth: string;
+  isVeteranDisabled: boolean;
+  membershipYear: number;
+}
+
+export function calculatePriceWithTier(input: TierPricingInput): PricingResult {
+  // BR-5: Veteran discount takes precedence
+  if (input.isVeteranDisabled) {
+    const discountedPrice = Math.min(input.tierPriceCents, DISCOUNTED_PRICE_CENTS);
+    return { priceCents: discountedPrice, discountType: "VETERAN" };
+  }
+
+  // Check senior discount: age >= 65 on Jan 1 of the membership year
+  const ageOnJanFirst = getAgeOnDate(
+    input.dateOfBirth,
+    `${input.membershipYear}-01-01`
+  );
+
+  if (ageOnJanFirst >= 65) {
+    const discountedPrice = Math.min(input.tierPriceCents, DISCOUNTED_PRICE_CENTS);
+    return { priceCents: discountedPrice, discountType: "SENIOR" };
+  }
+
+  return { priceCents: input.tierPriceCents, discountType: "NONE" };
+}
+
+/**
  * Calculate age in completed years on a given reference date.
  * Both dates are ISO format strings: YYYY-MM-DD.
  */

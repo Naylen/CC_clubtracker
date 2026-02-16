@@ -16,11 +16,15 @@ export default async function PaymentsPage() {
           <thead className="border-b bg-gray-50">
             <tr>
               <th className="px-4 py-3 font-medium text-gray-500">Date</th>
+              <th className="px-4 py-3 font-medium text-gray-500">
+                Household
+              </th>
               <th className="px-4 py-3 font-medium text-gray-500">Amount</th>
               <th className="px-4 py-3 font-medium text-gray-500">Method</th>
+              <th className="px-4 py-3 font-medium text-gray-500">Check #</th>
               <th className="px-4 py-3 font-medium text-gray-500">Status</th>
               <th className="px-4 py-3 font-medium text-gray-500">
-                Stripe Session
+                Recorded By
               </th>
             </tr>
           </thead>
@@ -31,6 +35,9 @@ export default async function PaymentsPage() {
                   {p.paidAt
                     ? formatDateTimeET(p.paidAt)
                     : formatDateTimeET(p.createdAt)}
+                </td>
+                <td className="px-4 py-3 font-medium">
+                  {p.householdName ?? "—"}
                 </td>
                 <td className="px-4 py-3 font-medium">
                   {formatCurrency(p.amountCents)}
@@ -48,6 +55,9 @@ export default async function PaymentsPage() {
                     {p.method}
                   </span>
                 </td>
+                <td className="px-4 py-3 text-gray-600">
+                  {p.checkNumber ?? "—"}
+                </td>
                 <td className="px-4 py-3">
                   <span
                     className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
@@ -61,17 +71,15 @@ export default async function PaymentsPage() {
                     {p.status}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-xs text-gray-400">
-                  {p.stripeSessionId
-                    ? `${p.stripeSessionId.slice(0, 20)}...`
-                    : "—"}
+                <td className="px-4 py-3 text-gray-600">
+                  {p.recordedByName ?? (p.method === "STRIPE" ? "Online" : "—")}
                 </td>
               </tr>
             ))}
             {payments.length === 0 && (
               <tr>
                 <td
-                  colSpan={5}
+                  colSpan={7}
                   className="px-4 py-8 text-center text-gray-500"
                 >
                   No payments recorded yet.

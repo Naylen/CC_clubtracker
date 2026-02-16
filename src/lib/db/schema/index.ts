@@ -11,3 +11,4 @@ export { payment, paymentMethodEnum, paymentStatusEnum } from "./payment";
 export { signupEventConfig } from "./signup-event-config";
 export { communicationsLog } from "./communications-log";
 export { auditLog, actorTypeEnum } from "./audit-log";
+export { membershipTier } from "./membership-tier";

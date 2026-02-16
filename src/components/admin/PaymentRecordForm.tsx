@@ -20,19 +20,19 @@ export function PaymentRecordForm({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [method, setMethod] = useState<"CASH" | "CHECK">("CASH");
+  const [checkNumber, setCheckNumber] = useState("");
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
     setLoading(true);
 
-    const formData = new FormData(e.currentTarget);
-    const method = formData.get("method") as "CASH" | "CHECK";
-
     const result = await recordPayment({
       membershipId,
       amountCents: priceCents,
       method,
+      ...(method === "CHECK" ? { checkNumber: checkNumber.trim() } : {}),
     });
 
     setLoading(false);
@@ -77,12 +77,30 @@ export function PaymentRecordForm({
         <select
           name="method"
           required
+          value={method}
+          onChange={(e) => setMethod(e.target.value as "CASH" | "CHECK")}
           className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
         >
           <option value="CASH">Cash</option>
           <option value="CHECK">Check</option>
         </select>
       </div>
+
+      {method === "CHECK" && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Check Number *
+          </label>
+          <input
+            type="text"
+            value={checkNumber}
+            onChange={(e) => setCheckNumber(e.target.value)}
+            required
+            placeholder="e.g. 1234"
+            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+          />
+        </div>
+      )}
 
       <button
         type="submit"

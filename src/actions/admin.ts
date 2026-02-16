@@ -1,10 +1,10 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { member } from "@/lib/db/schema";
+import { member, account } from "@/lib/db/schema";
 import { recordAudit } from "@/lib/utils/audit";
 import { canManageAdmins, canModifyRole } from "@/lib/utils/rbac";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import type { ActionResult, AdminRole } from "@/types";
@@ -201,4 +201,93 @@ export async function searchMembersForAdmin(query: string) {
         (m.email ?? "").toLowerCase().includes(lowerQuery),
     )
     .slice(0, 20);
+}
+
+/**
+ * Set a temporary password for a member.
+ * SUPER_ADMIN only. The member will be forced to change it on next login.
+ */
+export async function setTempPassword(
+  memberId: string,
+  tempPassword: string,
+): Promise<ActionResult> {
+  try {
+    const { adminMember } = await getSuperAdminSession();
+
+    if (tempPassword.length < 6) {
+      return {
+        success: false,
+        error: "Password must be at least 6 characters",
+      };
+    }
+
+    // Get the target member
+    const target = await db
+      .select()
+      .from(member)
+      .where(eq(member.id, memberId))
+      .limit(1);
+
+    if (!target[0]) {
+      return { success: false, error: "Member not found" };
+    }
+
+    if (!target[0].email) {
+      return { success: false, error: "Member has no email address" };
+    }
+
+    // Find the Better Auth user by email
+    const { user } = await import("@/lib/db/schema");
+    const authUser = await db
+      .select()
+      .from(user)
+      .where(eq(user.email, target[0].email))
+      .limit(1);
+
+    if (!authUser[0]) {
+      return {
+        success: false,
+        error: "No auth account found for this member",
+      };
+    }
+
+    // Hash the temp password using Better Auth's own hashPassword
+    const { hashPassword } = await import("better-auth/crypto");
+    const hashedPassword = await hashPassword(tempPassword);
+
+    // Update the credential account's password
+    await db
+      .update(account)
+      .set({ password: hashedPassword })
+      .where(
+        and(
+          eq(account.userId, authUser[0].id),
+          eq(account.providerId, "credential"),
+        ),
+      );
+
+    // Set the mustChangePassword flag
+    await db
+      .update(member)
+      .set({ mustChangePassword: true })
+      .where(eq(member.id, memberId));
+
+    await recordAudit({
+      actorId: adminMember.id,
+      actorType: "ADMIN",
+      action: "admin.set_temp_password",
+      entityType: "member",
+      entityId: memberId,
+      metadata: {
+        name: `${target[0].firstName} ${target[0].lastName}`,
+      },
+    });
+
+    return { success: true, data: undefined };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
 }

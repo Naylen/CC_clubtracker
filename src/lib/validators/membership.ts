@@ -21,8 +21,17 @@ export const signupEventSchema = z.object({
   notes: z.string().optional(),
 });
 
+export const membershipTierSchema = z.object({
+  name: z.string().min(1, "Name is required").max(100),
+  description: z.string().max(500).optional(),
+  priceCents: z.number().int().min(0, "Price must be non-negative"),
+  isActive: z.boolean().default(true),
+  sortOrder: z.number().int().min(0).default(0),
+});
+
 export type CreateMembershipYearInput = z.infer<
   typeof createMembershipYearSchema
 >;
 export type EnrollMemberInput = z.infer<typeof enrollMemberSchema>;
 export type SignupEventInput = z.infer<typeof signupEventSchema>;
+export type MembershipTierInput = z.infer<typeof membershipTierSchema>;
