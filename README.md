@@ -96,6 +96,9 @@ docker compose -f docker-compose.prod.yml up -d --build
 - Next.js standalone build (`output: "standalone"`)
 - `APP_DOMAIN` env var drives all URL-based configuration
 - Schema push + seeding runs automatically on first startup
+- Cloudflare Tunnel terminates TLS; Better Auth configured with
+  `useSecureCookies` and `trustedOrigins` for reverse proxy compatibility
+- Client-side auth uses `window.location.origin` (no build-time env vars needed)
 
 ---
 

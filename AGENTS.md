@@ -384,6 +384,21 @@ These rules are absolute. No agent may bypass them.
 17. **Stripe payment verification is dual-path.** Both webhook and server-side
     `stripe.checkout.sessions.retrieve()` are used for reliability.
 
+18. **Production runs behind Cloudflare Tunnel (reverse proxy).** The tunnel
+    terminates TLS and forwards plain HTTP to the container. All auth/cookie
+    configuration must account for this:
+    - `BETTER_AUTH_URL` must be the external HTTPS URL.
+    - `useSecureCookies: true` in production (sets `__Secure-` cookie prefix).
+    - Middleware must check both `__Secure-` prefixed and plain cookie names.
+    - Client-side auth uses `window.location.origin`, not a build-time env var
+      (since `NEXT_PUBLIC_*` vars are inlined at build time and unavailable in
+      the Docker builder stage).
+
+19. **`NEXT_PUBLIC_*` env vars are build-time only in Next.js.** They get
+    inlined into the client bundle during `next build`. For production Docker
+    builds, use runtime detection (e.g., `window.location.origin`) instead of
+    relying on `NEXT_PUBLIC_*` vars for client-side configuration.
+
 ---
 
 ## 8  Adding New Features Checklist
