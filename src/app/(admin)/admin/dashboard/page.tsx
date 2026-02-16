@@ -3,6 +3,8 @@ import { getHouseholds } from "@/actions/households";
 import { getCapacityDisplay } from "@/lib/utils/capacity";
 import { CapacityGauge } from "@/components/admin/CapacityGauge";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminDashboard() {
   const currentYear = await getCurrentMembershipYear();
   const households = await getHouseholds();

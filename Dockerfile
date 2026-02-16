@@ -18,6 +18,9 @@ CMD ["pnpm", "dev", "--port", "3001"]
 
 # Build
 FROM base AS builder
+# Provide dummy secrets for build-time only (Better Auth validates at module load)
+ENV BETTER_AUTH_SECRET=build-time-placeholder-not-used-at-runtime
+ENV BETTER_AUTH_URL=http://localhost:3001
 RUN pnpm build
 
 # Production

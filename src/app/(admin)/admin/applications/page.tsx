@@ -7,6 +7,8 @@ import { getCurrentMembershipYear } from "@/actions/membership-years";
 import { ApplicationQueue } from "@/components/admin/ApplicationQueue";
 import { ApprovedApplications } from "@/components/admin/ApprovedApplications";
 
+export const dynamic = "force-dynamic";
+
 export default async function ApplicationsPage() {
   const [pendingApps, approvedApps, tiers, currentYear] = await Promise.all([
     getPendingApplications(),

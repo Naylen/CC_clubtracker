@@ -6,6 +6,8 @@ import { HouseholdForm } from "@/components/admin/HouseholdForm";
 import { formatCurrency, formatDateET } from "@/lib/utils/dates";
 import Link from "next/link";
 
+export const dynamic = "force-dynamic";
+
 interface Props {
   params: Promise<{ id: string }>;
 }

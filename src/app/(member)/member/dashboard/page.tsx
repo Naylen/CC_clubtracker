@@ -10,6 +10,8 @@ import { getCurrentMembershipForPortal } from "@/actions/memberships";
 import { verifyAndActivatePayment } from "@/actions/payments";
 import { ApplicationStatusCard } from "@/components/member/ApplicationStatusCard";
 
+export const dynamic = "force-dynamic";
+
 interface Props {
   searchParams: Promise<{ payment?: string; session_id?: string }>;
 }

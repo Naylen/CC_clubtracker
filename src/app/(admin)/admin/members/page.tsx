@@ -2,6 +2,8 @@ import Link from "next/link";
 import { getMembersWithHousehold } from "@/actions/members";
 import { MemberTable } from "@/components/admin/MemberTable";
 
+export const dynamic = "force-dynamic";
+
 export default async function MembersPage() {
   const members = await getMembersWithHousehold();
 

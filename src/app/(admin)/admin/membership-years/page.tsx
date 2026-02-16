@@ -2,6 +2,8 @@ import Link from "next/link";
 import { getMembershipYears } from "@/actions/membership-years";
 import { formatDateET } from "@/lib/utils/dates";
 
+export const dynamic = "force-dynamic";
+
 export default async function MembershipYearsPage() {
   const years = await getMembershipYears();
 

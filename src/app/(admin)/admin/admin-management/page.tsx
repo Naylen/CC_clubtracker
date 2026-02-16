@@ -7,6 +7,8 @@ import { db } from "@/lib/db";
 import { member } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminManagementPage() {
   // Verify the current user is a SUPER_ADMIN
   const session = await auth.api.getSession({ headers: await headers() });

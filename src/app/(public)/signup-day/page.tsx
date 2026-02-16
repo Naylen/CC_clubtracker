@@ -1,6 +1,8 @@
 import { getPublicSignupEvent } from "@/actions/signup-events";
 import { NewMemberSignupForm } from "@/components/public/NewMemberSignupForm";
 
+export const dynamic = "force-dynamic";
+
 export default async function SignupDayPage() {
   const event = await getPublicSignupEvent();
 

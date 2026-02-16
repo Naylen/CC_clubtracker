@@ -2,6 +2,8 @@ import Link from "next/link";
 import { getBroadcasts } from "@/actions/broadcasts";
 import { formatDateTimeET } from "@/lib/utils/dates";
 
+export const dynamic = "force-dynamic";
+
 export default async function BroadcastsPage() {
   const broadcasts = await getBroadcasts();
 

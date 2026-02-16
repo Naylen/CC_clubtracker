@@ -1,6 +1,8 @@
 import { getPayments } from "@/actions/payments";
 import { formatCurrency, formatDateTimeET } from "@/lib/utils/dates";
 
+export const dynamic = "force-dynamic";
+
 export default async function PaymentsPage() {
   const payments = await getPayments();
 

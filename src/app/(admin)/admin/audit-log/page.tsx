@@ -3,6 +3,8 @@ import { auditLog } from "@/lib/db/schema";
 import { desc } from "drizzle-orm";
 import { formatDateTimeET } from "@/lib/utils/dates";
 
+export const dynamic = "force-dynamic";
+
 export default async function AuditLogPage() {
   const entries = await db
     .select()

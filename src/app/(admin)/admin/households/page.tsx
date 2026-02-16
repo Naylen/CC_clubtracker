@@ -2,6 +2,8 @@ import Link from "next/link";
 import { getHouseholds } from "@/actions/households";
 import { HouseholdTable } from "@/components/admin/HouseholdTable";
 
+export const dynamic = "force-dynamic";
+
 export default async function HouseholdsPage() {
   const households = await getHouseholds();
 

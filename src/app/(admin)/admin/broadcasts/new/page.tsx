@@ -1,6 +1,8 @@
 import { BroadcastForm } from "@/components/admin/BroadcastForm";
 import { getEmailProviders } from "@/actions/broadcasts";
 
+export const dynamic = "force-dynamic";
+
 export default async function NewBroadcastPage() {
   const providers = await getEmailProviders();
 

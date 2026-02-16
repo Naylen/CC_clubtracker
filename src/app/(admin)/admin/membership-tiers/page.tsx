@@ -2,6 +2,8 @@ import Link from "next/link";
 import { getAllMembershipTiers } from "@/actions/membership-tiers";
 import { MembershipTierTable } from "@/components/admin/MembershipTierTable";
 
+export const dynamic = "force-dynamic";
+
 export default async function MembershipTiersPage() {
   const tiers = await getAllMembershipTiers();
 

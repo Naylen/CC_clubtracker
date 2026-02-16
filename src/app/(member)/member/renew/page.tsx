@@ -6,6 +6,8 @@ import { member, membership, membershipYear } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { RenewalCard } from "@/components/member/RenewalCard";
 
+export const dynamic = "force-dynamic";
+
 export default async function RenewPage() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) redirect("/magic-link");

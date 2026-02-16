@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { getMembershipTierById } from "@/actions/membership-tiers";
 import { MembershipTierForm } from "@/components/admin/MembershipTierForm";
 
+export const dynamic = "force-dynamic";
+
 interface PageProps {
   params: Promise<{ id: string }>;
 }
