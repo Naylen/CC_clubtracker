@@ -16,13 +16,33 @@ export function LoginForm() {
     setError(null);
     setLoading(true);
 
-    const result = await signIn.email({ email, password });
+    try {
+      const result = await signIn.email(
+        {
+          email,
+          password,
+        },
+        {
+          onSuccess: () => {
+            router.push("/admin/dashboard");
+          },
+          onError: (ctx) => {
+            setError(ctx.error.message ?? "Invalid credentials");
+            setLoading(false);
+          },
+        },
+      );
 
-    if (result.error) {
-      setError(result.error.message ?? "Invalid credentials");
+      // Fallback in case callbacks don't fire
+      if (result.error) {
+        setError(result.error.message ?? "Invalid credentials");
+        setLoading(false);
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Sign in failed — please retry",
+      );
       setLoading(false);
-    } else {
-      router.push("/admin/dashboard");
     }
   }
 
