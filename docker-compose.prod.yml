@@ -1,10 +1,15 @@
+# Load .env.production for variable interpolation within this file
+# (env_file on services only injects vars into containers, not into compose itself)
+
 services:
   db:
     image: postgres:16-alpine
     # No ports exposed — only accessible on the internal Docker network
+    env_file:
+      - .env.production
     environment:
       POSTGRES_USER: ${DB_USER:-mcfgc}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME:-mcfgc}
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -28,7 +33,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3001
-      - DATABASE_URL=postgresql://${DB_USER:-mcfgc}:${DB_PASSWORD:?DB_PASSWORD is required}@db:5432/${DB_NAME:-mcfgc}
+      - DATABASE_URL=postgresql://${DB_USER:-mcfgc}:${DB_PASSWORD}@db:5432/${DB_NAME:-mcfgc}
     networks:
       - mcfgc-internal
     depends_on:
