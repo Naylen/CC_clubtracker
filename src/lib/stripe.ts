@@ -1,8 +1,20 @@
 import Stripe from "stripe";
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2026-01-28.clover",
-});
+/**
+ * Lazy-initialized Stripe client.
+ * Deferred so the module can be imported at build time without
+ * STRIPE_SECRET_KEY being present in the environment.
+ */
+let _stripe: Stripe | null = null;
+
+export function getStripe(): Stripe {
+  if (!_stripe) {
+    _stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+      apiVersion: "2026-01-28.clover",
+    });
+  }
+  return _stripe;
+}
 
 interface CreateCheckoutParams {
   membershipId: string;
@@ -19,7 +31,7 @@ interface CreateCheckoutParams {
 export async function createCheckoutSession(
   params: CreateCheckoutParams
 ): Promise<{ url: string; sessionId: string }> {
-  const session = await stripe.checkout.sessions.create({
+  const session = await getStripe().checkout.sessions.create({
     mode: "payment",
     customer_email: params.customerEmail,
     line_items: [
@@ -51,7 +63,7 @@ export async function createCheckoutSession(
 export async function retrieveCheckoutSession(
   sessionId: string
 ): Promise<Stripe.Checkout.Session> {
-  return stripe.checkout.sessions.retrieve(sessionId);
+  return getStripe().checkout.sessions.retrieve(sessionId);
 }
 
 /**
@@ -61,7 +73,7 @@ export function constructWebhookEvent(
   rawBody: string,
   signature: string
 ): Stripe.Event {
-  return stripe.webhooks.constructEvent(
+  return getStripe().webhooks.constructEvent(
     rawBody,
     signature,
     process.env.STRIPE_WEBHOOK_SECRET!
