@@ -54,8 +54,8 @@ export default async function RenewPage() {
     .where(
       and(
         eq(membership.householdId, memberRecord[0].householdId),
-        eq(membership.membershipYearId, yearRecord[0].id)
-      )
+        eq(membership.membershipYearId, yearRecord[0].id),
+      ),
     )
     .limit(1);
 
@@ -70,6 +70,12 @@ export default async function RenewPage() {
       </div>
     );
   }
+
+  // Check if we're within the renewal window
+  const now = new Date();
+  const renewalOpen = new Date(yearRecord[0].opensAt);
+  const renewalDeadline = new Date(yearRecord[0].renewalDeadline);
+  const isWithinRenewalWindow = now >= renewalOpen && now <= renewalDeadline;
 
   return (
     <div>
@@ -87,6 +93,9 @@ export default async function RenewPage() {
           priceCents={membershipRecord[0].priceCents}
           discountType={membershipRecord[0].discountType}
           year={currentYear}
+          renewalWindowOpen={isWithinRenewalWindow}
+          renewalOpensAt={yearRecord[0].opensAt.toISOString()}
+          renewalDeadline={yearRecord[0].renewalDeadline.toISOString()}
         />
       </div>
     </div>

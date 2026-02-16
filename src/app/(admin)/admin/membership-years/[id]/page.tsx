@@ -5,6 +5,7 @@ import { getMembershipsByYear } from "@/actions/memberships";
 import { getCapacityDisplay } from "@/lib/utils/capacity";
 import { MembershipYearForm } from "@/components/admin/MembershipYearForm";
 import { CapacityGauge } from "@/components/admin/CapacityGauge";
+import { SignupEventToggle } from "@/components/admin/SignupEventToggle";
 import { formatCurrency, formatDateET } from "@/lib/utils/dates";
 import Link from "next/link";
 
@@ -27,7 +28,7 @@ export default async function MembershipYearDetailPage({ params }: Props) {
       acc[m.status] = (acc[m.status] || 0) + 1;
       return acc;
     },
-    {} as Record<string, number>
+    {} as Record<string, number>,
   );
 
   return (
@@ -86,7 +87,16 @@ export default async function MembershipYearDetailPage({ params }: Props) {
           Sign-Up Day Event
         </h3>
         {signupEvent ? (
-          <div className="mt-4 rounded-lg border bg-white p-6">
+          <div className="mt-4 rounded-lg border bg-white p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-medium text-gray-500">
+                Member Visibility
+              </h4>
+              <SignupEventToggle
+                signupEventId={signupEvent.id}
+                isPublic={signupEvent.isPublic}
+              />
+            </div>
             <dl className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <dt className="text-gray-500">Date</dt>
@@ -137,9 +147,7 @@ export default async function MembershipYearDetailPage({ params }: Props) {
                 <th className="px-4 py-3 font-medium text-gray-500">
                   Household
                 </th>
-                <th className="px-4 py-3 font-medium text-gray-500">
-                  Status
-                </th>
+                <th className="px-4 py-3 font-medium text-gray-500">Status</th>
                 <th className="px-4 py-3 font-medium text-gray-500">Price</th>
                 <th className="px-4 py-3 font-medium text-gray-500">
                   Discount
@@ -174,9 +182,7 @@ export default async function MembershipYearDetailPage({ params }: Props) {
                     </span>
                   </td>
                   <td className="px-4 py-3">{formatCurrency(m.priceCents)}</td>
-                  <td className="px-4 py-3 text-gray-600">
-                    {m.discountType}
-                  </td>
+                  <td className="px-4 py-3 text-gray-600">{m.discountType}</td>
                   <td className="px-4 py-3 text-gray-600">
                     {m.enrolledAt ? formatDateET(m.enrolledAt) : "—"}
                   </td>

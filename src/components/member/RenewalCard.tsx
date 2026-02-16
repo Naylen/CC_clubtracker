@@ -10,6 +10,9 @@ interface RenewalCardProps {
   priceCents: number;
   discountType: string;
   year: number;
+  renewalWindowOpen: boolean;
+  renewalOpensAt: string;
+  renewalDeadline: string;
 }
 
 export function RenewalCard({
@@ -18,9 +21,23 @@ export function RenewalCard({
   priceCents,
   discountType,
   year,
+  renewalWindowOpen,
+  renewalOpensAt,
+  renewalDeadline,
 }: RenewalCardProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const opensDate = new Date(renewalOpensAt).toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+  const deadlineDate = new Date(renewalDeadline).toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
 
   async function handlePayOnline() {
     setLoading(true);
@@ -63,6 +80,44 @@ export function RenewalCard({
     );
   }
 
+  // Renewal window is closed - show message instead of pay button
+  if (!renewalWindowOpen) {
+    const now = new Date();
+    const opens = new Date(renewalOpensAt);
+    const isBeforeWindow = now < opens;
+
+    return (
+      <div className="rounded-lg border bg-gray-50 p-6">
+        <h3 className="text-lg font-semibold text-gray-800">
+          {year} Membership — Renewal Due
+        </h3>
+        <div className="mt-3 space-y-2">
+          <p className="text-2xl font-bold text-gray-900">
+            {formatCurrency(priceCents)}
+          </p>
+          {discountType !== "NONE" && (
+            <p className="text-sm text-green-700">
+              {discountType === "VETERAN"
+                ? "Disabled Veteran Discount"
+                : "Senior Discount (65+)"}{" "}
+              applied
+            </p>
+          )}
+          <div className="mt-4 rounded-md bg-yellow-50 border border-yellow-200 p-4">
+            <p className="text-sm font-medium text-yellow-800">
+              {isBeforeWindow
+                ? `The renewal window has not opened yet. Renewals open on ${opensDate}.`
+                : `The renewal window has closed. The deadline was ${deadlineDate}. Please contact a club officer.`}
+            </p>
+            <p className="mt-2 text-xs text-yellow-700">
+              Renewal window: {opensDate} &ndash; {deadlineDate}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-lg border bg-yellow-50 p-6">
       <h3 className="text-lg font-semibold text-yellow-800">
@@ -81,8 +136,7 @@ export function RenewalCard({
           </p>
         )}
         <p className="text-sm text-gray-600">
-          Payment must be received by January 31, {year} to maintain your
-          membership.
+          Renewal window: {opensDate} &ndash; {deadlineDate}
         </p>
       </div>
 
