@@ -18,7 +18,7 @@ export async function register() {
       // Run drizzle-kit push to ensure schema is up to date
       console.log("[init] Pushing database schema...");
       const { execSync } = await import("child_process");
-      execSync("npx drizzle-kit push --force", {
+      execSync("pnpm drizzle-kit push --force", {
         stdio: "inherit",
         env: { ...process.env },
       });
