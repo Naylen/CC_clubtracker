@@ -4,8 +4,10 @@ import type { NextRequest } from "next/server";
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Get session cookie
-  const sessionCookie = request.cookies.get("better-auth.session_token");
+  // Get session cookie — Better Auth uses "__Secure-" prefix when useSecureCookies is enabled
+  const sessionCookie =
+    request.cookies.get("__Secure-better-auth.session_token") ??
+    request.cookies.get("better-auth.session_token");
   const isAuthenticated = !!sessionCookie;
 
   // Protect admin routes

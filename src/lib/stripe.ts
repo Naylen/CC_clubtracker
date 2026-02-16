@@ -1,6 +1,19 @@
 import Stripe from "stripe";
 
 /**
+ * Resolve the public-facing app URL for Stripe redirects.
+ * Uses BETTER_AUTH_URL (always set in production via setup.sh).
+ */
+function getAppURL(): string {
+  return (
+    process.env.BETTER_AUTH_URL ??
+    (process.env.APP_DOMAIN
+      ? `https://${process.env.APP_DOMAIN}`
+      : "http://localhost:3001")
+  );
+}
+
+/**
  * Lazy-initialized Stripe client.
  * Deferred so the module can be imported at build time without
  * STRIPE_SECRET_KEY being present in the environment.
@@ -50,8 +63,8 @@ export async function createCheckoutSession(
     metadata: {
       membershipId: params.membershipId,
     },
-    success_url: `${process.env.BETTER_AUTH_URL}/member/dashboard?payment=success&session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${process.env.BETTER_AUTH_URL}/member/dashboard?payment=cancelled`,
+    success_url: `${getAppURL()}/member/dashboard?payment=success&session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${getAppURL()}/member/dashboard?payment=cancelled`,
   });
 
   return { url: session.url!, sessionId: session.id };
