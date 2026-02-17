@@ -1,17 +1,12 @@
 "use server";
 
 import { db } from "@/lib/db";
-import {
-  communicationsLog,
-  member,
-  membership,
-  household,
-  membershipYear,
-} from "@/lib/db/schema";
+import { communicationsLog, member } from "@/lib/db/schema";
 import { broadcastSchema } from "@/lib/validators/broadcast";
 import { recordAudit } from "@/lib/utils/audit";
+import { resolveRecipients } from "@/lib/utils/resolve-recipients";
 import { sendBroadcastEmail, getAvailableProviders } from "@/lib/email";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import type { ActionResult, RecipientFilter } from "@/types";
@@ -30,59 +25,7 @@ async function getAdminSession() {
 }
 
 /**
- * Resolve recipient emails based on a filter.
- */
-async function resolveRecipients(
-  filter: RecipientFilter
-): Promise<string[]> {
-  // Get the membership year if filter specifies it
-  let yearId: string | undefined;
-  if (filter.year) {
-    const year = await db
-      .select()
-      .from(membershipYear)
-      .where(eq(membershipYear.year, filter.year))
-      .limit(1);
-    yearId = year[0]?.id;
-  } else {
-    // Default to current year
-    const currentYear = new Date().getFullYear();
-    const year = await db
-      .select()
-      .from(membershipYear)
-      .where(eq(membershipYear.year, currentYear))
-      .limit(1);
-    yearId = year[0]?.id;
-  }
-
-  if (!yearId) return [];
-
-  // Build query based on status filter
-  let query = db
-    .select({ email: household.email })
-    .from(membership)
-    .innerJoin(household, eq(membership.householdId, household.id))
-    .where(eq(membership.membershipYearId, yearId));
-
-  if (filter.status) {
-    query = db
-      .select({ email: household.email })
-      .from(membership)
-      .innerJoin(household, eq(membership.householdId, household.id))
-      .where(
-        and(
-          eq(membership.membershipYearId, yearId),
-          eq(membership.status, filter.status)
-        )
-      );
-  }
-
-  const results = await query;
-  return results.map((r) => r.email);
-}
-
-/**
- * Send a broadcast email to filtered recipients.
+ * Send or schedule a broadcast email to filtered recipients.
  */
 export async function sendBroadcast(
   input: unknown
@@ -91,6 +34,10 @@ export async function sendBroadcast(
     const { adminMember } = await getAdminSession();
     const data = broadcastSchema.parse(input);
 
+    const isScheduled =
+      data.scheduledFor && data.scheduledFor.getTime() > Date.now();
+
+    // For immediate sends, resolve recipients now; for scheduled, we just preview the count
     const recipients = await resolveRecipients(data.recipientFilter);
     if (recipients.length === 0) {
       return { success: false, error: "No recipients match the filter" };
@@ -98,7 +45,44 @@ export async function sendBroadcast(
 
     const provider = data.emailProvider ?? "resend";
 
-    // Create communications log entry
+    if (isScheduled) {
+      // Schedule for later — don't send emails yet
+      const [logEntry] = await db
+        .insert(communicationsLog)
+        .values({
+          subject: data.subject,
+          body: data.body,
+          recipientFilter: data.recipientFilter,
+          recipientCount: recipients.length,
+          sentByAdminId: adminMember.id,
+          sentAt: null,
+          status: "SCHEDULED",
+          scheduledFor: data.scheduledFor!,
+          emailProvider: provider,
+        })
+        .returning({ id: communicationsLog.id });
+
+      await recordAudit({
+        actorId: adminMember.id,
+        actorType: "ADMIN",
+        action: "broadcast.schedule",
+        entityType: "communications_log",
+        entityId: logEntry.id,
+        metadata: {
+          subject: data.subject,
+          recipientCount: recipients.length,
+          filter: data.recipientFilter,
+          scheduledFor: data.scheduledFor!.toISOString(),
+        },
+      });
+
+      return {
+        success: true,
+        data: { id: logEntry.id, recipientCount: recipients.length },
+      };
+    }
+
+    // Immediate send
     const [logEntry] = await db
       .insert(communicationsLog)
       .values({
@@ -108,6 +92,7 @@ export async function sendBroadcast(
         recipientCount: recipients.length,
         sentByAdminId: adminMember.id,
         sentAt: new Date(),
+        status: "SENT",
         emailProvider: provider,
       })
       .returning({ id: communicationsLog.id });
@@ -158,12 +143,63 @@ export async function sendBroadcast(
   }
 }
 
+/**
+ * Cancel a scheduled broadcast.
+ */
+export async function cancelScheduledBroadcast(
+  broadcastId: string
+): Promise<ActionResult> {
+  try {
+    const { adminMember } = await getAdminSession();
+
+    const [broadcast] = await db
+      .select()
+      .from(communicationsLog)
+      .where(eq(communicationsLog.id, broadcastId))
+      .limit(1);
+
+    if (!broadcast) {
+      return { success: false, error: "Broadcast not found" };
+    }
+
+    if (broadcast.status !== "SCHEDULED") {
+      return { success: false, error: "Only scheduled broadcasts can be cancelled" };
+    }
+
+    await db
+      .update(communicationsLog)
+      .set({
+        status: "CANCELLED",
+        cancelledAt: new Date(),
+      })
+      .where(eq(communicationsLog.id, broadcastId));
+
+    await recordAudit({
+      actorId: adminMember.id,
+      actorType: "ADMIN",
+      action: "broadcast.cancel",
+      entityType: "communications_log",
+      entityId: broadcastId,
+      metadata: {
+        subject: broadcast.subject,
+      },
+    });
+
+    return { success: true, data: undefined };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
 export async function getBroadcasts() {
   await getAdminSession();
   return db
     .select()
     .from(communicationsLog)
-    .orderBy(desc(communicationsLog.sentAt));
+    .orderBy(desc(communicationsLog.createdAt));
 }
 
 /**

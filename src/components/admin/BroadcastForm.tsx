@@ -16,6 +16,42 @@ interface BroadcastFormProps {
   providers: Provider[];
 }
 
+/**
+ * Convert a datetime-local string (entered as Eastern Time) to a UTC Date.
+ */
+function easternToUtc(datetimeLocal: string): Date {
+  // Create a date string that explicitly specifies America/New_York
+  // datetime-local gives us "YYYY-MM-DDTHH:mm"
+  const eastern = new Date(
+    new Date(datetimeLocal).toLocaleString("en-US", {
+      timeZone: "America/New_York",
+    })
+  );
+  // This approach can be unreliable; instead use the Intl API to find offset
+  const utcMs = new Date(datetimeLocal + ":00").getTime();
+  // Get the offset by computing what time it is in ET for a known UTC time
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+  // Parse the ET representation of our input as if it were UTC to find the offset
+  const parts = formatter.formatToParts(new Date(utcMs));
+  const get = (type: string) =>
+    parts.find((p) => p.type === type)?.value ?? "0";
+  const etNow = new Date(
+    `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}:${get("second")}Z`
+  );
+  const offsetMs = etNow.getTime() - utcMs;
+  // The user entered a time in ET, so subtract the offset to get UTC
+  return new Date(utcMs - offsetMs);
+}
+
 export function BroadcastForm({ providers }: BroadcastFormProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -26,6 +62,8 @@ export function BroadcastForm({ providers }: BroadcastFormProps) {
   const [emailProvider, setEmailProvider] = useState<EmailProvider>(
     providers[0]?.provider ?? "resend"
   );
+  const [sendMode, setSendMode] = useState<"now" | "scheduled">("now");
+  const [scheduledDateTime, setScheduledDateTime] = useState("");
 
   async function handlePreview() {
     const count = await getRecipientCount(filter);
@@ -46,11 +84,28 @@ export function BroadcastForm({ providers }: BroadcastFormProps) {
       return;
     }
 
+    // Validate scheduled time is in the future
+    let scheduledFor: Date | undefined;
+    if (sendMode === "scheduled") {
+      if (!scheduledDateTime) {
+        setError("Please select a date and time for the scheduled broadcast.");
+        setLoading(false);
+        return;
+      }
+      scheduledFor = easternToUtc(scheduledDateTime);
+      if (scheduledFor.getTime() <= Date.now()) {
+        setError("Scheduled time must be in the future.");
+        setLoading(false);
+        return;
+      }
+    }
+
     const result = await sendBroadcast({
       subject: formData.get("subject") as string,
       body: bodyHtml,
       recipientFilter: filter,
       emailProvider,
+      ...(scheduledFor ? { scheduledFor: scheduledFor.toISOString() } : {}),
     });
 
     setLoading(false);
@@ -161,13 +216,64 @@ export function BroadcastForm({ providers }: BroadcastFormProps) {
         </div>
       </div>
 
+      {/* Send Mode Toggle */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700">
+          Delivery
+        </label>
+        <div className="mt-2 flex gap-4">
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="radio"
+              name="sendMode"
+              value="now"
+              checked={sendMode === "now"}
+              onChange={() => setSendMode("now")}
+              className="text-green-700 focus:ring-green-700"
+            />
+            Send Now
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="radio"
+              name="sendMode"
+              value="scheduled"
+              checked={sendMode === "scheduled"}
+              onChange={() => setSendMode("scheduled")}
+              className="text-green-700 focus:ring-green-700"
+            />
+            Schedule for Later
+          </label>
+        </div>
+        {sendMode === "scheduled" && (
+          <div className="mt-3">
+            <label className="block text-sm font-medium text-gray-700">
+              Send At (Eastern Time)
+            </label>
+            <input
+              type="datetime-local"
+              value={scheduledDateTime}
+              onChange={(e) => setScheduledDateTime(e.target.value)}
+              className="mt-1 rounded-md border px-3 py-2 text-sm"
+              required={sendMode === "scheduled"}
+            />
+          </div>
+        )}
+      </div>
+
       <div className="flex gap-3 pt-2">
         <button
           type="submit"
           disabled={loading || providers.length === 0}
           className="rounded-md bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-800 disabled:opacity-50"
         >
-          {loading ? "Sending..." : "Send Broadcast"}
+          {loading
+            ? sendMode === "scheduled"
+              ? "Scheduling..."
+              : "Sending..."
+            : sendMode === "scheduled"
+              ? "Schedule Broadcast"
+              : "Send Broadcast"}
         </button>
         <button
           type="button"

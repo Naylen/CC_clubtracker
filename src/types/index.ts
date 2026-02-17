@@ -9,6 +9,7 @@ export type DiscountType = "NONE" | "VETERAN" | "SENIOR";
 export type PaymentMethod = "STRIPE" | "CASH" | "CHECK";
 export type PaymentStatus = "PENDING" | "SUCCEEDED" | "FAILED" | "REFUNDED";
 export type ActorType = "ADMIN" | "SYSTEM" | "MEMBER";
+export type BroadcastStatus = "SENT" | "SCHEDULED" | "CANCELLED";
 
 /**
  * RBAC Permission Map:
