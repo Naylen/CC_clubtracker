@@ -56,8 +56,8 @@ export function BroadcastForm({ providers }: BroadcastFormProps) {
     setLoading(false);
 
     if (result.success) {
-      router.push("/admin/broadcasts");
-      router.refresh();
+      window.location.href = "/admin/broadcasts";
+      return;
     } else {
       setError(result.error);
     }
