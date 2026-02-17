@@ -19,8 +19,9 @@ export async function register() {
       console.log("[init] Pushing database schema...");
       const { execSync } = await import("child_process");
       execSync("pnpm drizzle-kit push --force", {
-        stdio: "inherit",
+        stdio: ["pipe", "inherit", "inherit"],
         env: { ...process.env },
+        timeout: 30000,
       });
       console.log("[init] Schema push complete.");
     } catch (error) {
