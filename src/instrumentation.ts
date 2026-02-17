@@ -15,13 +15,19 @@ export async function register() {
     await new Promise((resolve) => setTimeout(resolve, 3000));
 
     try {
-      // Run drizzle-kit push to ensure schema is up to date
+      // Run drizzle-kit push to sync schema with the database.
+      // Do NOT use --force: it auto-approves table truncation which
+      // destroys production data. Instead, redirect stdin from /dev/null
+      // so drizzle-kit gets immediate EOF if it prompts for interactive
+      // input — this causes it to exit/error safely rather than hanging
+      // or truncating tables. The catch block below handles the failure
+      // gracefully (schema may already be in sync).
       console.log("[init] Pushing database schema...");
       const { execSync } = await import("child_process");
-      execSync("pnpm drizzle-kit push --force", {
-        stdio: ["pipe", "inherit", "inherit"],
+      execSync("pnpm drizzle-kit push < /dev/null", {
+        stdio: ["inherit", "inherit", "inherit"],
         env: { ...process.env },
-        timeout: 30000,
+        timeout: 60000,
       });
       console.log("[init] Schema push complete.");
     } catch (error) {
