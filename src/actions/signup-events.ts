@@ -327,9 +327,10 @@ export async function signupNewMember(
       };
     }
 
-    // Check capacity with row-level locking (BR-1, C1)
-    const { checkCapacity } = await import("@/lib/utils/capacity");
-    const capacity = await checkCapacity(
+    // Check capacity (BR-1) — use non-locking read since the unique
+    // constraint on (householdId, membershipYearId) prevents duplicates
+    const { getCapacityDisplay } = await import("@/lib/utils/capacity");
+    const capacity = await getCapacityDisplay(
       yearRecord[0].id,
       yearRecord[0].capacityCap,
     );
