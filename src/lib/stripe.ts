@@ -86,9 +86,9 @@ export function constructWebhookEvent(
   rawBody: string,
   signature: string
 ): Stripe.Event {
-  return getStripe().webhooks.constructEvent(
-    rawBody,
-    signature,
-    process.env.STRIPE_WEBHOOK_SECRET!
-  );
+  const secret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!secret) {
+    throw new Error("STRIPE_WEBHOOK_SECRET environment variable is not set");
+  }
+  return getStripe().webhooks.constructEvent(rawBody, signature, secret);
 }

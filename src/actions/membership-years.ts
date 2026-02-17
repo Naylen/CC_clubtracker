@@ -112,10 +112,12 @@ export async function updateMembershipYear(
 }
 
 export async function getMembershipYears() {
+  await getAdminSession();
   return db.select().from(membershipYear).orderBy(desc(membershipYear.year));
 }
 
 export async function getMembershipYearById(id: string) {
+  await getAdminSession();
   const result = await db
     .select()
     .from(membershipYear)

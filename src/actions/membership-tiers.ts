@@ -25,6 +25,7 @@ async function getAdminSession() {
  * Get all membership tiers (admin view — includes inactive).
  */
 export async function getAllMembershipTiers() {
+  await getAdminSession();
   return db
     .select()
     .from(membershipTier)
@@ -46,6 +47,7 @@ export async function getMembershipTiers() {
  * Get a single membership tier by ID.
  */
 export async function getMembershipTierById(id: string) {
+  await getAdminSession();
   const result = await db
     .select()
     .from(membershipTier)

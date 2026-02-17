@@ -110,6 +110,7 @@ export async function seedAdmin(): Promise<void> {
     }
 
     // Create the admin member with SUPER_ADMIN role
+    // mustChangePassword: true forces password change on first login (M2)
     const [adminMember] = await db
       .insert(member)
       .values({
@@ -121,6 +122,7 @@ export async function seedAdmin(): Promise<void> {
         role: "PRIMARY",
         isAdmin: true,
         adminRole: "SUPER_ADMIN",
+        mustChangePassword: true,
       })
       .returning({ id: member.id });
 

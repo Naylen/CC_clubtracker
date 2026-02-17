@@ -104,10 +104,12 @@ export async function deleteHousehold(id: string): Promise<ActionResult> {
 }
 
 export async function getHouseholds() {
+  await getAdminSession();
   return db.select().from(household).orderBy(household.name);
 }
 
 export async function getHouseholdById(id: string) {
+  await getAdminSession();
   const result = await db
     .select()
     .from(household)

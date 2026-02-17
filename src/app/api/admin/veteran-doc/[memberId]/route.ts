@@ -71,12 +71,27 @@ export async function GET(
       },
     });
 
-    // Return the file with proper headers
+    // Sanitize filename to prevent header injection (C3)
+    const rawFilename = target[0].veteranDocFilename ?? "veteran-doc";
+    const safeFilename = rawFilename
+      .replace(/"/g, '\\"')
+      .replace(/[\r\n]/g, "")
+      .replace(/\.\./g, "")
+      .replace(/[/\\]/g, "");
+
+    // Only allow known-safe MIME types; default to octet-stream (H5)
+    const SAFE_MIME_TYPES = ["application/pdf", "image/jpeg", "image/png"];
+    const mimeType = SAFE_MIME_TYPES.includes(target[0].veteranDocMimeType ?? "")
+      ? target[0].veteranDocMimeType!
+      : "application/octet-stream";
+
+    // Return the file with security headers
     return new NextResponse(new Uint8Array(decryptedBuffer), {
       headers: {
-        "Content-Type": target[0].veteranDocMimeType ?? "application/octet-stream",
-        "Content-Disposition": `inline; filename="${target[0].veteranDocFilename ?? "veteran-doc"}"`,
-        "Cache-Control": "no-store, no-cache, must-revalidate",
+        "Content-Type": mimeType,
+        "Content-Disposition": `inline; filename="${safeFilename}"`,
+        "Cache-Control": "no-store, no-cache, must-revalidate, private",
+        "X-Content-Type-Options": "nosniff",
       },
     });
   } catch (error) {

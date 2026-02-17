@@ -30,10 +30,23 @@ async function getSuperAdminSession() {
   return { session, adminMember: adminMember[0] };
 }
 
+async function getAdminSession() {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) throw new Error("Unauthorized");
+  const adminMember = await db
+    .select()
+    .from(member)
+    .where(eq(member.email, session.user.email))
+    .limit(1);
+  if (!adminMember[0]?.isAdmin) throw new Error("Forbidden: Admin only");
+  return { session, adminMember: adminMember[0] };
+}
+
 /**
  * Get all admin members for the admin management page.
  */
 export async function getAdminMembers() {
+  await getAdminSession();
   return db
     .select({
       id: member.id,
@@ -178,6 +191,7 @@ export async function removeAdminRole(
  * Search for members that can be promoted to admin.
  */
 export async function searchMembersForAdmin(query: string) {
+  await getAdminSession();
   const allMembers = await db
     .select({
       id: member.id,

@@ -309,13 +309,28 @@ export async function signupNewMember(
       };
     }
 
-    // Check capacity
-    const existingMemberships = await db
-      .select()
-      .from(membership)
-      .where(eq(membership.membershipYearId, yearRecord[0].id));
+    // Validate event hasn't ended (M8)
+    const now = new Date();
+    const eventDateStr =
+      typeof event.eventDate === "string"
+        ? event.eventDate
+        : (event.eventDate as Date).toISOString().split("T")[0];
+    const eventEnd = new Date(`${eventDateStr}T${event.eventEndTime}`);
+    if (now > eventEnd) {
+      return {
+        success: false,
+        error: "Sign-up day has ended.",
+      };
+    }
 
-    if (existingMemberships.length >= yearRecord[0].capacityCap) {
+    // Check capacity with row-level locking (BR-1, C1)
+    const { checkCapacity } = await import("@/lib/utils/capacity");
+    const capacity = await checkCapacity(
+      yearRecord[0].id,
+      yearRecord[0].capacityCap,
+    );
+
+    if (capacity.isFull) {
       return {
         success: false,
         error: "The club is at capacity for this year. Please contact a club officer.",

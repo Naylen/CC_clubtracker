@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { constructWebhookEvent } from "@/lib/stripe";
 import { db } from "@/lib/db";
 import { payment, membership } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { recordAudit } from "@/lib/utils/audit";
 import type Stripe from "stripe";
 
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Activate the membership
+    // Activate the membership (only if in a payable state — M7)
     await db
       .update(membership)
       .set({
@@ -97,7 +97,12 @@ export async function POST(request: NextRequest) {
         enrolledAt: new Date(),
         updatedAt: new Date(),
       })
-      .where(eq(membership.id, membershipId));
+      .where(
+        and(
+          eq(membership.id, membershipId),
+          inArray(membership.status, ["NEW_PENDING", "PENDING_RENEWAL", "ACTIVE"]),
+        ),
+      );
 
     await recordAudit({
       actorId: null,

@@ -32,6 +32,33 @@ export async function recordPayment(
     const { adminMember } = await getAdminSession();
     const data = recordPaymentSchema.parse(input);
 
+    // Verify membership exists and is in a payable state (M7)
+    const membershipRecord = await db
+      .select()
+      .from(membership)
+      .where(eq(membership.id, data.membershipId))
+      .limit(1);
+
+    if (!membershipRecord[0]) {
+      return { success: false, error: "Membership not found" };
+    }
+
+    const payableStatuses = ["NEW_PENDING", "PENDING_RENEWAL"];
+    if (!payableStatuses.includes(membershipRecord[0].status)) {
+      return {
+        success: false,
+        error: `Cannot record payment: membership is ${membershipRecord[0].status}`,
+      };
+    }
+
+    // Verify amount matches membership price (M4)
+    if (data.amountCents !== membershipRecord[0].priceCents) {
+      return {
+        success: false,
+        error: `Amount mismatch: expected ${membershipRecord[0].priceCents} cents, got ${data.amountCents}`,
+      };
+    }
+
     const [created] = await db
       .insert(payment)
       .values({
@@ -88,6 +115,17 @@ export async function createStripeCheckout(
     const session = await auth.api.getSession({ headers: await headers() });
     if (!session) return { success: false, error: "Unauthorized" };
 
+    // Verify caller owns this membership (C2: IDOR protection)
+    const callerMember = await db
+      .select()
+      .from(member)
+      .where(eq(member.email, session.user.email))
+      .limit(1);
+
+    if (!callerMember[0]) {
+      return { success: false, error: "Member not found" };
+    }
+
     // Get the membership with related data
     const membershipRecord = await db
       .select()
@@ -97,6 +135,11 @@ export async function createStripeCheckout(
 
     if (!membershipRecord[0]) {
       return { success: false, error: "Membership not found" };
+    }
+
+    // Verify membership belongs to caller's household
+    if (membershipRecord[0].householdId !== callerMember[0].householdId) {
+      return { success: false, error: "Forbidden" };
     }
 
     const householdRecord = await db
@@ -144,6 +187,7 @@ export async function createStripeCheckout(
 }
 
 export async function getPayments() {
+  await getAdminSession();
   const { membershipYear } = await import("@/lib/db/schema");
   const { sql } = await import("drizzle-orm");
 
@@ -178,6 +222,7 @@ export async function getPayments() {
 }
 
 export async function getPaymentsByMembership(membershipId: string) {
+  await getAdminSession();
   return db
     .select()
     .from(payment)

@@ -151,6 +151,7 @@ export async function sendBroadcast(
 }
 
 export async function getBroadcasts() {
+  await getAdminSession();
   return db
     .select()
     .from(communicationsLog)
@@ -163,6 +164,7 @@ export async function getBroadcasts() {
 export async function getRecipientCount(
   filter: RecipientFilter
 ): Promise<number> {
+  await getAdminSession();
   const recipients = await resolveRecipients(filter);
   return recipients.length;
 }

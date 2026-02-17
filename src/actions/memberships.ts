@@ -146,6 +146,7 @@ export async function activateMembership(
 }
 
 export async function getMembershipsByYear(membershipYearId: string) {
+  await getAdminSession();
   return db
     .select()
     .from(membership)
@@ -154,6 +155,7 @@ export async function getMembershipsByYear(membershipYearId: string) {
 }
 
 export async function getMembershipsByHousehold(householdId: string) {
+  await getAdminSession();
   return db
     .select()
     .from(membership)
@@ -182,6 +184,7 @@ export async function getMembershipForMember(
  * Get pending applications — NEW_PENDING with no tier assigned.
  */
 export async function getPendingApplications() {
+  await getAdminSession();
   const rows = await db
     .select({
       membershipId: membership.id,
@@ -222,6 +225,7 @@ export async function getPendingApplications() {
  * Get approved applications — NEW_PENDING with tier assigned, awaiting payment.
  */
 export async function getApprovedAwaitingPayment() {
+  await getAdminSession();
   const rows = await db
     .select({
       membershipId: membership.id,

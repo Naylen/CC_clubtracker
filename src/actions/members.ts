@@ -103,6 +103,7 @@ export async function deleteMember(id: string): Promise<ActionResult> {
 }
 
 export async function getMembersByHousehold(householdId: string) {
+  await getAdminSession();
   return db
     .select()
     .from(member)
@@ -111,6 +112,7 @@ export async function getMembersByHousehold(householdId: string) {
 }
 
 export async function getPrimaryMember(householdId: string) {
+  await getAdminSession();
   const result = await db
     .select()
     .from(member)
@@ -120,6 +122,7 @@ export async function getPrimaryMember(householdId: string) {
 }
 
 export async function getMembersWithHousehold() {
+  await getAdminSession();
   const { household } = await import("@/lib/db/schema");
   return db
     .select({
@@ -143,6 +146,7 @@ export async function getMembersWithHousehold() {
 }
 
 export async function getMemberById(id: string) {
+  await getAdminSession();
   const result = await db
     .select()
     .from(member)
