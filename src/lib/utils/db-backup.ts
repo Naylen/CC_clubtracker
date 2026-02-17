@@ -53,7 +53,7 @@ export async function runDbBackup(): Promise<{
 
   const auth = new google.auth.GoogleAuth({
     credentials: keyJson,
-    scopes: ["https://www.googleapis.com/auth/drive.file"],
+    scopes: ["https://www.googleapis.com/auth/drive"],
   });
 
   const drive = google.drive({ version: "v3", auth });
@@ -69,6 +69,7 @@ export async function runDbBackup(): Promise<{
       body: createReadStream(filepath),
     },
     fields: "id,name,size",
+    supportsAllDrives: true,
   });
 
   const driveFileId = response.data.id!;
@@ -82,6 +83,9 @@ export async function runDbBackup(): Promise<{
     q: `'${folderId}' in parents and name contains 'mcfgc-backup-' and createdTime < '${cutoff}' and trashed = false`,
     fields: "files(id,name,createdTime)",
     pageSize: 100,
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
+    corpora: "allDrives",
   });
 
   const oldFiles = listResponse.data.files ?? [];
@@ -89,7 +93,7 @@ export async function runDbBackup(): Promise<{
 
   for (const file of oldFiles) {
     try {
-      await drive.files.delete({ fileId: file.id! });
+      await drive.files.delete({ fileId: file.id!, supportsAllDrives: true });
       deleted++;
     } catch {
       console.error(`Failed to delete old backup: ${file.name}`);
@@ -107,7 +111,7 @@ export async function runDbBackup(): Promise<{
     actorType: "SYSTEM",
     action: "system.db_backup",
     entityType: "system",
-    entityId: "backup",
+    entityId: "00000000-0000-0000-0000-000000000000",
     metadata: {
       filename,
       sizeBytes: stats.size,
