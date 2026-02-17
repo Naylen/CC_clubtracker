@@ -310,13 +310,17 @@ export async function signupNewMember(
     }
 
     // Validate event hasn't ended (M8)
-    const now = new Date();
+    // Times are in Eastern Time (club's timezone); compare in ET
     const eventDateStr =
       typeof event.eventDate === "string"
         ? event.eventDate
         : (event.eventDate as Date).toISOString().split("T")[0];
-    const eventEnd = new Date(`${eventDateStr}T${event.eventEndTime}`);
-    if (now > eventEnd) {
+    const endTime = event.eventEndTime.slice(0, 5); // HH:MM from HH:MM:SS
+    const nowET = new Date().toLocaleString("en-US", { timeZone: "America/New_York" });
+    const nowInET = new Date(nowET);
+    const eventEnd = new Date(`${eventDateStr}T${endTime}:00`);
+    // Both are now naive dates representing ET wall-clock time
+    if (nowInET > eventEnd) {
       return {
         success: false,
         error: "Sign-up day has ended.",
