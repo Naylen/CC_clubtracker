@@ -44,10 +44,46 @@ export function MemberTable({ members }: MemberTableProps) {
           placeholder="Search by name, email, or household..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full max-w-sm rounded-md border px-3 py-2 text-sm"
+          className="w-full rounded-md border px-3 py-2 text-sm md:max-w-sm"
         />
       </div>
-      <div className="overflow-x-auto rounded-lg border">
+      {/* Mobile cards */}
+      <div className="space-y-3 md:hidden">
+        {filtered.map((m) => (
+          <div key={m.id} className="rounded-lg border bg-white p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium">
+                  {m.firstName} {m.lastName}
+                </p>
+                <p className="text-sm text-gray-500">
+                  {m.membershipNumber != null
+                    ? `#${formatMembershipNumber(m.membershipNumber)}`
+                    : "No #"}
+                  {" · "}
+                  {m.householdName}
+                </p>
+              </div>
+              <Link
+                href={`/admin/members/${m.id}`}
+                className="text-sm font-medium text-green-700 hover:text-green-900"
+              >
+                View
+              </Link>
+            </div>
+          </div>
+        ))}
+        {filtered.length === 0 && (
+          <p className="py-8 text-center text-gray-500">
+            {search
+              ? "No members match your search."
+              : "No members yet. Add one to get started."}
+          </p>
+        )}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden overflow-x-auto rounded-lg border md:block">
         <table className="w-full text-left text-sm">
           <thead className="border-b bg-gray-50">
             <tr>

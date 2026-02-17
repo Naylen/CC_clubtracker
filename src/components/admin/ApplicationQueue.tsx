@@ -143,7 +143,89 @@ export function ApplicationQueue({
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-md border">
+      {/* Mobile cards */}
+      <div className="space-y-3 md:hidden">
+        {applications.map((app) => {
+          const age = getAgeOnDate(
+            app.dateOfBirth,
+            `${membershipYear}-01-01`
+          );
+          return (
+            <div key={app.membershipId} className="rounded-lg border bg-white p-4">
+              <div className="flex items-center justify-between">
+                <p className="font-medium">
+                  {app.memberFirstName} {app.memberLastName}
+                </p>
+                <div className="flex items-center gap-1">
+                  <span
+                    className={
+                      age >= 65
+                        ? "text-sm font-semibold text-blue-700"
+                        : "text-sm text-gray-600"
+                    }
+                  >
+                    Age {age}
+                  </span>
+                  {age >= 65 && (
+                    <span className="inline-flex rounded-full bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-700">
+                      65+
+                    </span>
+                  )}
+                  {app.isVeteranDisabled && (
+                    <span className="inline-flex rounded-full bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700">
+                      Vet
+                    </span>
+                  )}
+                </div>
+              </div>
+              <p className="mt-1 text-sm text-gray-500">
+                Applied {formatDateET(app.createdAt)}
+              </p>
+              <div className="mt-3">
+                <select
+                  value={selectedTiers[app.membershipId] ?? ""}
+                  onChange={(e) =>
+                    setSelectedTiers((prev) => ({
+                      ...prev,
+                      [app.membershipId]: e.target.value,
+                    }))
+                  }
+                  className="w-full rounded-md border px-2 py-1 text-sm"
+                >
+                  <option value="">Select tier...</option>
+                  {tiers.map((tier) => (
+                    <option key={tier.id} value={tier.id}>
+                      {tier.name} (${(tier.priceCents / 100).toFixed(2)})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="mt-2 flex gap-2">
+                <button
+                  onClick={() => handleApprove(app.membershipId)}
+                  disabled={
+                    loading === app.membershipId ||
+                    !selectedTiers[app.membershipId]
+                  }
+                  className="flex-1 rounded bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
+                >
+                  {loading === app.membershipId ? "..." : "Approve"}
+                </button>
+                <button
+                  onClick={() => handleReject(app.membershipId)}
+                  disabled={loading === app.membershipId}
+                  className="flex-1 rounded bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                >
+                  Reject
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden overflow-x-auto rounded-md border md:block">
         <table className="w-full text-left text-sm">
           <thead className="border-b bg-gray-50">
             <tr>

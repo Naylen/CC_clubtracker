@@ -24,7 +24,36 @@ export default async function MembershipYearsPage() {
         </Link>
       </div>
 
-      <div className="mt-6 overflow-x-auto rounded-lg border">
+      {/* Mobile cards */}
+      <div className="mt-6 space-y-3 md:hidden">
+        {years.map((y) => (
+          <div key={y.id} className="rounded-lg border bg-white p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-lg font-medium">{y.year}</p>
+              <Link
+                href={`/admin/membership-years/${y.id}`}
+                className="text-sm font-medium text-green-700 hover:text-green-900"
+              >
+                Manage
+              </Link>
+            </div>
+            <div className="mt-1 text-sm text-gray-500">
+              <p>Cap: {y.capacityCap} households</p>
+              <p>
+                Renewal: {formatDateET(y.opensAt)} – {formatDateET(y.renewalDeadline)}
+              </p>
+            </div>
+          </div>
+        ))}
+        {years.length === 0 && (
+          <p className="py-8 text-center text-gray-500">
+            No membership years configured yet.
+          </p>
+        )}
+      </div>
+
+      {/* Desktop table */}
+      <div className="mt-6 hidden overflow-x-auto rounded-lg border md:block">
         <table className="w-full text-left text-sm">
           <thead className="border-b bg-gray-50">
             <tr>

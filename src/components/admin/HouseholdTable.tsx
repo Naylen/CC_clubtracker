@@ -33,10 +33,41 @@ export function HouseholdTable({ households }: HouseholdTableProps) {
           placeholder="Search by name or email..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full max-w-sm rounded-md border px-3 py-2 text-sm"
+          className="w-full rounded-md border px-3 py-2 text-sm md:max-w-sm"
         />
       </div>
-      <div className="overflow-x-auto rounded-lg border">
+      {/* Mobile cards */}
+      <div className="space-y-3 md:hidden">
+        {filtered.map((h) => (
+          <div key={h.id} className="rounded-lg border bg-white p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium">{h.name}</p>
+                <p className="text-sm text-gray-500">{h.email}</p>
+                <p className="text-sm text-gray-500">
+                  {h.city}, {h.state}
+                </p>
+              </div>
+              <Link
+                href={`/admin/households/${h.id}`}
+                className="text-sm font-medium text-green-700 hover:text-green-900"
+              >
+                View
+              </Link>
+            </div>
+          </div>
+        ))}
+        {filtered.length === 0 && (
+          <p className="py-8 text-center text-gray-500">
+            {search
+              ? "No households match your search."
+              : "No households yet. Create one to get started."}
+          </p>
+        )}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden overflow-x-auto rounded-lg border md:block">
         <table className="w-full text-left text-sm">
           <thead className="border-b bg-gray-50">
             <tr>

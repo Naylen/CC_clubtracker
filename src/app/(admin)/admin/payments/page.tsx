@@ -13,7 +13,56 @@ export default async function PaymentsPage() {
         All payment transactions (online and in-person).
       </p>
 
-      <div className="mt-6 overflow-x-auto rounded-lg border">
+      {/* Mobile cards */}
+      <div className="mt-6 space-y-3 md:hidden">
+        {payments.map((p) => (
+          <div key={p.id} className="rounded-lg border bg-white p-4">
+            <div className="flex items-center justify-between">
+              <p className="font-medium">{formatCurrency(p.amountCents)}</p>
+              <div className="flex gap-2">
+                <span
+                  className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                    p.method === "STRIPE"
+                      ? "bg-purple-100 text-purple-700"
+                      : p.method === "CASH"
+                        ? "bg-green-100 text-green-700"
+                        : "bg-blue-100 text-blue-700"
+                  }`}
+                >
+                  {p.method}
+                </span>
+                <span
+                  className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                    p.status === "SUCCEEDED"
+                      ? "bg-green-100 text-green-700"
+                      : p.status === "PENDING"
+                        ? "bg-yellow-100 text-yellow-700"
+                        : "bg-red-100 text-red-700"
+                  }`}
+                >
+                  {p.status}
+                </span>
+              </div>
+            </div>
+            <p className="mt-1 text-sm text-gray-600">
+              {p.householdName ?? "—"}
+            </p>
+            <p className="text-sm text-gray-500">
+              {p.paidAt
+                ? formatDateTimeET(p.paidAt)
+                : formatDateTimeET(p.createdAt)}
+            </p>
+          </div>
+        ))}
+        {payments.length === 0 && (
+          <p className="py-8 text-center text-gray-500">
+            No payments recorded yet.
+          </p>
+        )}
+      </div>
+
+      {/* Desktop table */}
+      <div className="mt-6 hidden overflow-x-auto rounded-lg border md:block">
         <table className="w-full text-left text-sm">
           <thead className="border-b bg-gray-50">
             <tr>

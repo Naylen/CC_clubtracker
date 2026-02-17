@@ -33,7 +33,7 @@ export default async function SignupDayPage() {
       </h2>
 
       <div className="mt-4 rounded-lg border bg-white p-6">
-        <dl className="grid grid-cols-2 gap-4 text-sm">
+        <dl className="grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
           <div>
             <dt className="text-gray-500">Date</dt>
             <dd className="font-medium">{eventDate}</dd>

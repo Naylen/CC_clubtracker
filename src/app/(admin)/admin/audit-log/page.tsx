@@ -19,7 +19,38 @@ export default async function AuditLogPage() {
         All administrative actions and system events.
       </p>
 
-      <div className="mt-6 overflow-x-auto rounded-lg border">
+      {/* Mobile cards */}
+      <div className="mt-6 space-y-3 md:hidden">
+        {entries.map((e) => (
+          <div key={e.id} className="rounded-lg border bg-white p-4">
+            <div className="flex items-center justify-between">
+              <code className="text-xs">{e.action}</code>
+              <span
+                className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                  e.actorType === "ADMIN"
+                    ? "bg-blue-100 text-blue-700"
+                    : e.actorType === "SYSTEM"
+                      ? "bg-gray-100 text-gray-600"
+                      : "bg-green-100 text-green-700"
+                }`}
+              >
+                {e.actorType}
+              </span>
+            </div>
+            <p className="mt-1 text-sm text-gray-500">
+              {formatDateTimeET(e.createdAt)}
+            </p>
+          </div>
+        ))}
+        {entries.length === 0 && (
+          <p className="py-8 text-center text-gray-500">
+            No audit entries yet.
+          </p>
+        )}
+      </div>
+
+      {/* Desktop table */}
+      <div className="mt-6 hidden overflow-x-auto rounded-lg border md:block">
         <table className="w-full text-left text-sm">
           <thead className="border-b bg-gray-50">
             <tr>

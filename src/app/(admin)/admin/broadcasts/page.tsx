@@ -71,7 +71,43 @@ export default async function BroadcastsPage() {
         </Link>
       </div>
 
-      <div className="mt-6 overflow-x-auto rounded-lg border">
+      {/* Mobile cards */}
+      <div className="mt-6 space-y-3 md:hidden">
+        {broadcasts.map((b) => {
+          const status = (b.status ?? "SENT") as BroadcastStatus;
+          return (
+            <div key={b.id} className="rounded-lg border bg-white p-4">
+              <div className="flex items-center justify-between">
+                <p
+                  className={`font-medium ${
+                    status === "CANCELLED" ? "text-gray-400 line-through" : ""
+                  }`}
+                >
+                  {b.subject}
+                </p>
+                <StatusBadge status={status} />
+              </div>
+              <div className="mt-1 flex items-center justify-between text-sm text-gray-500">
+                <span>{getDisplayDate(b)}</span>
+                <span>{b.recipientCount} recipients</span>
+              </div>
+              {status === "SCHEDULED" && (
+                <div className="mt-2">
+                  <CancelBroadcastButton broadcastId={b.id} />
+                </div>
+              )}
+            </div>
+          );
+        })}
+        {broadcasts.length === 0 && (
+          <p className="py-8 text-center text-gray-500">
+            No broadcasts sent yet.
+          </p>
+        )}
+      </div>
+
+      {/* Desktop table */}
+      <div className="mt-6 hidden overflow-x-auto rounded-lg border md:block">
         <table className="w-full text-left text-sm">
           <thead className="border-b bg-gray-50">
             <tr>

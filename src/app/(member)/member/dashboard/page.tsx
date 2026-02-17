@@ -72,10 +72,10 @@ export default async function MemberDashboard({ searchParams }: Props) {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900">
-          Welcome, {memberRecord[0].firstName}
+        <h2 className="flex flex-wrap items-center gap-x-3 gap-y-1 text-2xl font-bold text-gray-900">
+          <span>Welcome, {memberRecord[0].firstName}</span>
           {memberRecord[0].membershipNumber != null && (
-            <span className="ml-3 inline-flex rounded-full bg-indigo-100 px-3 py-1 text-sm font-semibold text-indigo-700">
+            <span className="inline-flex rounded-full bg-indigo-100 px-3 py-1 text-sm font-semibold text-indigo-700">
               Member #{formatMembershipNumber(memberRecord[0].membershipNumber)}
             </span>
           )}
@@ -119,7 +119,7 @@ export default async function MemberDashboard({ searchParams }: Props) {
           <h3 className="text-lg font-semibold text-green-900">
             New Member Sign-Up Day
           </h3>
-          <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
+          <dl className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 text-sm">
             <div>
               <dt className="text-green-700">Date</dt>
               <dd className="font-medium text-green-900">
@@ -155,7 +155,7 @@ export default async function MemberDashboard({ searchParams }: Props) {
         <h3 className="text-lg font-semibold text-gray-900">
           Household Details
         </h3>
-        <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
+        <dl className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 text-sm">
           <div>
             <dt className="text-gray-500">Address</dt>
             <dd>
