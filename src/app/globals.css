@@ -17,3 +17,50 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
+
+/* TipTap rich text editor */
+.tiptap-editor .tiptap {
+  min-height: 12rem;
+  padding: 0.75rem;
+  outline: none;
+}
+
+.tiptap-editor .tiptap h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0.75rem 0 0.25rem;
+}
+
+.tiptap-editor .tiptap h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0.5rem 0 0.25rem;
+}
+
+.tiptap-editor .tiptap ul {
+  list-style: disc;
+  padding-left: 1.5rem;
+  margin: 0.25rem 0;
+}
+
+.tiptap-editor .tiptap ol {
+  list-style: decimal;
+  padding-left: 1.5rem;
+  margin: 0.25rem 0;
+}
+
+.tiptap-editor .tiptap a {
+  color: #15803d;
+  text-decoration: underline;
+}
+
+.tiptap-editor .tiptap blockquote {
+  border-left: 3px solid #d1d5db;
+  padding-left: 0.75rem;
+  margin: 0.5rem 0;
+  color: #6b7280;
+}
+
+.tiptap-editor .tiptap p {
+  margin: 0.25rem 0;
+}

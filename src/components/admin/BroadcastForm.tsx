@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { sendBroadcast, getRecipientCount } from "@/actions/broadcasts";
+import { RichTextEditor } from "@/components/admin/RichTextEditor";
 import type { RecipientFilter, MembershipStatus } from "@/types";
 import type { EmailProvider } from "@/lib/email";
 
@@ -21,6 +22,7 @@ export function BroadcastForm({ providers }: BroadcastFormProps) {
   const [loading, setLoading] = useState(false);
   const [recipientCount, setRecipientCount] = useState<number | null>(null);
   const [filter, setFilter] = useState<RecipientFilter>({});
+  const [bodyHtml, setBodyHtml] = useState("");
   const [emailProvider, setEmailProvider] = useState<EmailProvider>(
     providers[0]?.provider ?? "resend"
   );
@@ -37,9 +39,16 @@ export function BroadcastForm({ providers }: BroadcastFormProps) {
 
     const formData = new FormData(e.currentTarget);
 
+    const strippedBody = bodyHtml.replace(/<[^>]*>/g, "").trim();
+    if (!strippedBody) {
+      setError("Email body cannot be empty.");
+      setLoading(false);
+      return;
+    }
+
     const result = await sendBroadcast({
       subject: formData.get("subject") as string,
-      body: formData.get("body") as string,
+      body: bodyHtml,
       recipientFilter: filter,
       emailProvider,
     });
@@ -146,16 +155,10 @@ export function BroadcastForm({ providers }: BroadcastFormProps) {
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700">
-          Body (HTML)
-        </label>
-        <textarea
-          name="body"
-          required
-          rows={10}
-          className="mt-1 w-full rounded-md border px-3 py-2 text-sm font-mono"
-          placeholder="<p>Dear members,</p>"
-        />
+        <label className="block text-sm font-medium text-gray-700">Body</label>
+        <div className="mt-1">
+          <RichTextEditor onChange={setBodyHtml} />
+        </div>
       </div>
 
       <div className="flex gap-3 pt-2">
