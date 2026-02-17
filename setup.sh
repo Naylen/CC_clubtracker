@@ -63,10 +63,12 @@ echo "Generating secrets..."
 BETTER_AUTH_SECRET=$(openssl rand -base64 32)
 ENCRYPTION_KEY=$(openssl rand -hex 32)
 DB_PASSWORD=$(openssl rand -base64 24 | tr -d '/+=' | head -c 32)
+CRON_SECRET=$(openssl rand -hex 32)
 
 echo "  BETTER_AUTH_SECRET: generated"
 echo "  ENCRYPTION_KEY:     generated (64-char hex)"
 echo "  DB_PASSWORD:        generated"
+echo "  CRON_SECRET:        generated"
 
 # Write .env.production
 cat > "$ENV_FILE" << ENVEOF
@@ -106,8 +108,8 @@ RESEND_API_KEY=
 GMAIL_USER=
 GMAIL_APP_PASSWORD=
 
-# -- Inngest (optional)
-INNGEST_SIGNING_KEY=
+# -- Cron (scheduled jobs)
+CRON_SECRET=${CRON_SECRET}
 
 # -- Google Drive Backup (optional -- daily automated backups)
 GOOGLE_SERVICE_ACCOUNT_KEY=
@@ -130,7 +132,14 @@ echo "  4. Start the app:"
 echo ""
 echo "     docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build"
 echo ""
-echo "  5. Visit https://${APP_DOMAIN} and log in with:"
+echo "  5. Set up host crontab for scheduled jobs:"
+echo "     crontab -e"
+echo "     # Lapse check: Feb 1 at 5:00 UTC"
+echo "     0 5 1 2 * curl -sf -X POST -H \"x-cron-secret: \${CRON_SECRET}\" http://localhost:3001/api/cron/lapse-check"
+echo "     # DB backup: Daily at 7:00 UTC"
+echo "     0 7 * * * curl -sf -X POST -H \"x-cron-secret: \${CRON_SECRET}\" http://localhost:3001/api/cron/db-backup"
+echo ""
+echo "  6. Visit https://${APP_DOMAIN} and log in with:"
 echo "     Email:    ${ADMIN_EMAIL}"
 echo "     Password: (the password you just entered)"
 echo ""

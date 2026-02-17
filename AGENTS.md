@@ -43,7 +43,7 @@ deployment. This file (`AGENTS.md`) defines *how* agents work on the codebase;
 | ORM | Drizzle ORM | 0.45 |
 | Payments | Stripe Checkout + Webhooks | 20.x |
 | Email | Resend + Gmail SMTP (nodemailer) | 6.9 / 7.0 |
-| Jobs | Inngest | 3.52 |
+| Jobs | Host cron + internal API routes | — |
 | Forms | React Hook Form + Zod | 7.71 / 4.3 |
 | Testing | Vitest + Playwright | 4.0 / 1.58 |
 | Package Manager | pnpm | latest |
@@ -111,7 +111,8 @@ mcfgc-club-manager/
 │   │   └── api/
 │   │       ├── auth/[...all]/route.ts          ← Better Auth handler
 │   │       ├── webhooks/stripe/route.ts        ← Stripe webhook
-│   │       ├── inngest/route.ts                ← Inngest serve endpoint
+│   │       ├── cron/lapse-check/route.ts       ← Lapse check cron endpoint
+│   │       ├── cron/db-backup/route.ts        ← DB backup cron endpoint
 │   │       └── admin/veteran-doc/[memberId]/route.ts ← vet doc download (admin only)
 │   ├── components/
 │   │   ├── shared/                 ← header, sidebar
@@ -162,19 +163,17 @@ mcfgc-club-manager/
 │   │   │       ├── signup-event-config.ts
 │   │   │       ├── communications-log.ts
 │   │   │       └── audit-log.ts
-│   │   ├── inngest/
-│   │   │   ├── client.ts           ← Inngest client instance
-│   │   │   └── functions/
-│   │   │       ├── lapse-check.ts  ← Feb 1 cron: PENDING_RENEWAL → LAPSED
-│   │   │       ├── email-batch.ts  ← broadcast dispatch (Resend or Gmail)
-│   │   │       └── seed-renewals.ts ← seed PENDING_RENEWAL for new year
 │   │   ├── utils/
 │   │   │   ├── audit.ts            ← recordAudit() helper
 │   │   │   ├── capacity.ts         ← checkCapacity() with FOR UPDATE
+│   │   │   ├── cron-auth.ts        ← CRON_SECRET validation helper
 │   │   │   ├── dates.ts            ← UTC ↔ Eastern + formatCurrency
+│   │   │   ├── db-backup.ts        ← pg_dump → Google Drive backup logic
 │   │   │   ├── encryption.ts       ← AES-256-GCM encrypt/decrypt
+│   │   │   ├── lapse-check.ts      ← BR-2: PENDING_RENEWAL → LAPSED logic
 │   │   │   ├── pricing.ts          ← calculatePrice() with discount logic
-│   │   │   └── rbac.ts             ← role-based access control helpers
+│   │   │   ├── rbac.ts             ← role-based access control helpers
+│   │   │   └── seed-renewals.ts    ← seed PENDING_RENEWAL for new year
 │   │   └── validators/
 │   │       ├── broadcast.ts        ← broadcast Zod schema (+ emailProvider)
 │   │       ├── household.ts
@@ -301,7 +300,7 @@ mcfgc-club-manager/
 | `RESEND_API_KEY` | No | Resend email API key (optional if using Gmail) |
 | `GMAIL_USER` | No | Gmail address for SMTP sending |
 | `GMAIL_APP_PASSWORD` | No | Gmail App Password (requires 2FA) |
-| `INNGEST_SIGNING_KEY` | Prod | Inngest function signing key |
+| `CRON_SECRET` | Prod | Secret for authenticating cron HTTP requests |
 | `APP_PORT` | No | Host port (default: 3001) |
 
 ---
@@ -329,8 +328,9 @@ pnpm test:e2e                         # Playwright
 stripe listen --forward-to localhost:3001/api/webhooks/stripe
 stripe trigger checkout.session.completed
 
-# ── Inngest (local dev) ─────────────────────────────────────
-npx inngest-cli@latest dev
+# ── Cron (manual trigger for testing) ─────────────────────────
+curl -X POST -H "x-cron-secret: YOUR_SECRET" http://localhost:3001/api/cron/lapse-check
+curl -X POST -H "x-cron-secret: YOUR_SECRET" http://localhost:3001/api/cron/db-backup
 ```
 
 ---
@@ -376,7 +376,7 @@ These rules are absolute. No agent may bypass them.
 
 14. **Senior discount age calculated as of Jan 1 of the membership year.**
 
-15. **Inngest functions must be idempotent.**
+15. **Cron job functions must be idempotent.**
 
 16. **Driver's license numbers encrypted at rest with AES-256-GCM.** Never
     store plaintext.

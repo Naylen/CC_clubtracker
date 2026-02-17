@@ -7,7 +7,7 @@ import { recordAudit } from "@/lib/utils/audit";
 import { eq, desc } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import { inngest } from "@/lib/inngest/client";
+import { seedRenewals } from "@/lib/utils/seed-renewals";
 import type { ActionResult } from "@/types";
 
 async function getAdminSession() {
@@ -56,13 +56,12 @@ export async function createMembershipYear(
       .limit(1);
 
     if (previousYear[0]) {
-      await inngest.send({
-        name: "membership-year/created",
-        data: {
-          membershipYearId: created.id,
-          year: data.year,
-          previousYearId: previousYear[0].id,
-        },
+      void seedRenewals({
+        membershipYearId: created.id,
+        year: data.year,
+        previousYearId: previousYear[0].id,
+      }).catch((err) => {
+        console.error("[seed-renewals] Failed:", err);
       });
     }
 

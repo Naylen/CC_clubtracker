@@ -155,7 +155,7 @@ the upcoming year proceeds as follows:
 4. **Members pay online** (Stripe Checkout → webhook or server-side verification
    confirms payment → status transitions to `ACTIVE`) **or in person** (admin
    records cash/check → status transitions to `ACTIVE`).
-5. **Jan 31 cutoff.** An Inngest cron job fires at midnight ET on Feb 1. All
+5. **Jan 31 cutoff.** A host cron job fires at midnight ET on Feb 1. All
    memberships still in `PENDING_RENEWAL` transition to `LAPSED`.
 6. **Slots freed.** Each lapsed household no longer counts toward the capacity
    cap, making room for new members on sign-up day.
@@ -242,7 +242,7 @@ The app supports two payment channels with belt-and-suspenders verification:
    - **Pending renewal** (status = PENDING_RENEWAL).
 5. Admin previews the recipient count and sends.
 6. System dispatches the email via the selected provider:
-   - **Resend**: Uses batch API through Inngest for reliability.
+   - **Resend**: Uses batch API for delivery.
    - **Gmail SMTP**: Sends individually via nodemailer with 200ms delay between
      emails to avoid rate limits (~500/day personal, ~2000/day Workspace).
 7. A `communications_log` entry records subject, body, recipient filter,
@@ -265,7 +265,7 @@ The app supports two payment channels with belt-and-suspenders verification:
 | **Payments** | Stripe Checkout + Webhooks | Hosted checkout minimizes PCI scope; dual verification (webhook + server-side retrieve) ensures reliability. |
 | **Email** | Resend + Gmail SMTP (nodemailer) | Dual-provider support. Resend for batch API; Gmail for clubs that prefer their own email address. Selectable per broadcast. |
 | **Hosting** | Docker + Cloudflare Tunnel | Self-hosted Docker containers; Cloudflare Tunnel provides HTTPS frontend with no exposed ports. |
-| **Background Jobs** | Inngest | Serverless-native job runner with cron scheduling, event-driven functions, and automatic retries. |
+| **Background Jobs** | Host cron + internal API routes | Lightweight cron endpoints protected by `CRON_SECRET`, triggered by host crontab entries. |
 | **Encryption** | AES-256-GCM | Sensitive data (driver's license numbers) encrypted at rest using `ENCRYPTION_KEY`. |
 | **File Storage** | Local filesystem (Docker volume) | Veteran documentation stored on disk, served via authenticated API route with audit logging. |
 
@@ -310,7 +310,7 @@ deployment.
 │  │  │   Server    │  │ (RSC +     │  │  (Better Auth)         │  │  │
 │  │  │   Actions)  │  │  Server    │  │                        │  │  │
 │  │  │             │  │  Actions)  │  │  /api/webhooks/stripe  │  │  │
-│  │  ├─────────────┤  ├────────────┤  │  /api/inngest          │  │  │
+│  │  ├─────────────┤  ├────────────┤  │  /api/cron/*           │  │  │
 │  │  │  (public)/* │  │  (auth)/*  │  │  /api/admin/veteran-doc│  │  │
 │  │  │  Signup Day │  │  Login     │  │                        │  │  │
 │  │  └──────┬──────┘  └─────┬──────┘  └───────────┬────────────┘  │  │
@@ -333,11 +333,11 @@ deployment.
 │  └────────────────────────────────────────────────────────────────┘  │
 │                                                                      │
 │  ┌────────────────────────────────────────────────────────────────┐  │
-│  │  Inngest Functions                                             │  │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌─────────────────┐     │  │
-│  │  │ lapse-check  │  │ email-batch  │  │ seed-renewals   │     │  │
-│  │  │ (cron: Feb 1)│  │ (event)      │  │ (event)         │     │  │
-│  │  └──────────────┘  └──────────────┘  └─────────────────┘     │  │
+│  │  Host Cron (crontab)                                          │  │
+│  │  ┌──────────────────────┐  ┌──────────────────────────┐      │  │
+│  │  │ lapse-check (Feb 1)  │  │ db-backup (daily 2am ET) │      │  │
+│  │  │ → POST /api/cron/... │  │ → POST /api/cron/...     │      │  │
+│  │  └──────────────────────┘  └──────────────────────────┘      │  │
 │  └────────────────────────────────────────────────────────────────┘  │
 └────────────────────────┬──────────────────────────────────────────────┘
                          │ Cloudflare Tunnel (HTTPS)
@@ -363,8 +363,8 @@ External Services:
 | Admin records cash payment | Browser → `/admin/payments` → Server Action → Drizzle → PostgreSQL |
 | New member signs up | Browser → `/signup-day` → Server Action → create household + member + auth account → auto-login → redirect to dashboard |
 | Admin reviews application | Browser → `/admin/applications` → assign tier → approve → member sees "Pay with Card" |
-| Renewal lapse cron | Inngest Cloud → `/api/inngest` → `lapse-check` function → Drizzle → PostgreSQL |
-| Mass email broadcast | Admin → compose → Inngest event → `email-batch` → Resend or Gmail SMTP |
+| Renewal lapse cron | Host cron → `POST /api/cron/lapse-check` → lapse-check logic → Drizzle → PostgreSQL |
+| Mass email broadcast | Admin → compose → server action → `sendBroadcastEmail()` → Resend or Gmail SMTP |
 | Auth (admin) | Browser → `/login` → Better Auth email/password → session |
 | Auth (member) | Browser → `/login` or `/magic-link` → Better Auth → session |
 | Veteran doc view | Admin → `/admin/applications` → "View Doc" → `/api/admin/veteran-doc/[memberId]` (audit-logged) |
@@ -593,8 +593,8 @@ transaction before any new enrollment is committed.
 > **Any membership with status = PENDING_RENEWAL after the membership year's
 > `renewal_deadline` must transition to LAPSED.**
 
-**Enforcement:** Inngest cron function `lapse-check` scheduled for
-`0 5 1 2 *` (Feb 1 00:00 ET = 05:00 UTC).
+**Enforcement:** Host cron triggers `POST /api/cron/lapse-check` at
+`0 5 1 2 *` (Feb 1 00:00 ET = 05:00 UTC). Endpoint protected by `CRON_SECRET` header.
 
 ### BR-3  Slot Release on Lapse
 
@@ -729,7 +729,7 @@ configuration:
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret |
 | `RESEND_API_KEY` | Resend email API key (optional) |
 | `GMAIL_APP_PASSWORD` | Gmail App Password for SMTP (optional) |
-| `INNGEST_SIGNING_KEY` | Inngest function signing key |
+| `CRON_SECRET` | Secret for authenticating cron HTTP requests |
 
 `.env.local` (dev) and `.env.production` (prod) are both gitignored.
 `setup.sh` auto-generates cryptographic secrets on first run.

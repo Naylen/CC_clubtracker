@@ -10,8 +10,7 @@ import {
 } from "@/lib/db/schema";
 import { broadcastSchema } from "@/lib/validators/broadcast";
 import { recordAudit } from "@/lib/utils/audit";
-import { inngest } from "@/lib/inngest/client";
-import { getAvailableProviders } from "@/lib/email";
+import { sendBroadcastEmail, getAvailableProviders } from "@/lib/email";
 import { eq, and, desc } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
@@ -113,17 +112,26 @@ export async function sendBroadcast(
       })
       .returning({ id: communicationsLog.id });
 
-    // Dispatch via Inngest for reliable delivery
-    await inngest.send({
-      name: "broadcast/send",
-      data: {
-        communicationsLogId: logEntry.id,
-        recipients,
-        subject: data.subject,
-        body: data.body,
-        emailProvider: provider,
-      },
-    });
+    // Send emails in the background (fire-and-forget)
+    const logId = logEntry.id;
+    void (async () => {
+      try {
+        const batchId = await sendBroadcastEmail({
+          to: recipients,
+          subject: data.subject,
+          body: data.body,
+          provider,
+        });
+        if (batchId) {
+          await db
+            .update(communicationsLog)
+            .set({ resendBatchId: batchId })
+            .where(eq(communicationsLog.id, logId));
+        }
+      } catch (err) {
+        console.error("[broadcast] Email send failed:", err);
+      }
+    })();
 
     await recordAudit({
       actorId: adminMember.id,

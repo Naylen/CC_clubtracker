@@ -4,7 +4,7 @@ Web application for the Montgomery County Fish & Game Club to manage annual
 memberships, collect dues, and communicate with members.
 
 **Stack:** Next.js 16 · React 19 · TypeScript · PostgreSQL 16 · Drizzle ORM ·
-Better Auth · Stripe · Resend + Gmail SMTP · Inngest · Docker · Cloudflare Tunnel
+Better Auth · Stripe · Resend + Gmail SMTP · Docker · Cloudflare Tunnel
 
 ---
 
@@ -80,7 +80,7 @@ chmod +x setup.sh
 
 # 2. Edit .env.production — add your API keys
 #    Required: STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY, STRIPE_WEBHOOK_SECRET
-#    Optional: RESEND_API_KEY, GMAIL_USER + GMAIL_APP_PASSWORD, INNGEST_SIGNING_KEY
+#    Optional: RESEND_API_KEY, GMAIL_USER + GMAIL_APP_PASSWORD
 
 # 3. Start production containers
 docker compose -f docker-compose.prod.yml up -d --build
@@ -111,13 +111,12 @@ src/
 │   ├── (member)/member/   Member portal (dashboard, renewal)
 │   ├── (auth)/            Login, magic link, change password
 │   ├── (public)/          Public sign-up day page
-│   └── api/               Auth handler, Stripe webhook, Inngest, veteran doc API
+│   └── api/               Auth handler, Stripe webhook, cron endpoints, veteran doc API
 ├── actions/               Server actions (households, members, payments, etc.)
 ├── components/            React components (admin, member, public, shared)
 ├── lib/
 │   ├── db/schema/         Drizzle schema definitions (11 tables)
-│   ├── inngest/functions/ Background jobs (lapse check, email batch, seed renewals)
-│   ├── utils/             Business logic (pricing, capacity, encryption, audit)
+│   ├── utils/             Business logic (pricing, capacity, encryption, audit, cron jobs)
 │   └── validators/        Zod schemas (shared client/server validation)
 └── types/                 Shared TypeScript types
 ```
