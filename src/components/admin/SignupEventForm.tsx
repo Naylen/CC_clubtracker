@@ -15,6 +15,11 @@ interface SignupEventFormProps {
   } | null;
 }
 
+/** Normalize "HH:MM:SS" → "HH:MM" for <input type="time"> */
+function toHHMM(time: string): string {
+  return time.slice(0, 5);
+}
+
 export function SignupEventForm({
   membershipYearId,
   existing,
@@ -97,7 +102,7 @@ export function SignupEventForm({
           <input
             name="eventStartTime"
             type="time"
-            defaultValue={existing?.eventStartTime ?? "08:00"}
+            defaultValue={existing ? toHHMM(existing.eventStartTime) : "08:00"}
             required
             className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
           />
@@ -109,7 +114,7 @@ export function SignupEventForm({
           <input
             name="eventEndTime"
             type="time"
-            defaultValue={existing?.eventEndTime ?? "12:00"}
+            defaultValue={existing ? toHHMM(existing.eventEndTime) : "12:00"}
             required
             className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
           />

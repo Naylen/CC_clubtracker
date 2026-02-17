@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { member, household, membership } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
-import { formatCurrency, formatDateET } from "@/lib/utils/dates";
+import { formatCurrency, formatDateET, formatTime } from "@/lib/utils/dates";
 import { getPublicSignupEvent } from "@/actions/signup-events";
 import { getCurrentMembershipForPortal } from "@/actions/memberships";
 import { verifyAndActivatePayment } from "@/actions/payments";
@@ -123,7 +123,7 @@ export default async function MemberDashboard({ searchParams }: Props) {
             <div>
               <dt className="text-green-700">Time</dt>
               <dd className="font-medium text-green-900">
-                {signupEvent.eventStartTime} &ndash; {signupEvent.eventEndTime}
+                {formatTime(signupEvent.eventStartTime)} &ndash; {formatTime(signupEvent.eventEndTime)}
               </dd>
             </div>
             <div>

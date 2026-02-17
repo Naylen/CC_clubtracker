@@ -15,8 +15,8 @@ export const enrollMemberSchema = z.object({
 export const signupEventSchema = z.object({
   membershipYearId: z.string().uuid(),
   eventDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
-  eventStartTime: z.string().regex(/^\d{2}:\d{2}$/, "Time must be HH:MM"),
-  eventEndTime: z.string().regex(/^\d{2}:\d{2}$/, "Time must be HH:MM"),
+  eventStartTime: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/, "Time must be HH:MM"),
+  eventEndTime: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/, "Time must be HH:MM"),
   location: z.string().min(1).optional(),
   notes: z.string().optional(),
 });

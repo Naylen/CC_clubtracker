@@ -1,5 +1,6 @@
 import { getPublicSignupEvent } from "@/actions/signup-events";
 import { NewMemberSignupForm } from "@/components/public/NewMemberSignupForm";
+import { formatTime } from "@/lib/utils/dates";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +41,7 @@ export default async function SignupDayPage() {
           <div>
             <dt className="text-gray-500">Time</dt>
             <dd className="font-medium">
-              {event.eventStartTime} &ndash; {event.eventEndTime}
+              {formatTime(event.eventStartTime)} &ndash; {formatTime(event.eventEndTime)}
             </dd>
           </div>
           <div>

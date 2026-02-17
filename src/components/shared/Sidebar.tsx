@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   Tag,
   ClipboardCheck,
+  FileUp,
 } from "lucide-react";
 
 const navItems = [
@@ -31,6 +32,7 @@ const navItems = [
     icon: Tag,
   },
   { href: "/admin/applications", label: "Applications", icon: ClipboardCheck },
+  { href: "/admin/import", label: "Import Members", icon: FileUp },
   { href: "/admin/payments", label: "Payments", icon: CreditCard },
   { href: "/admin/broadcasts", label: "Broadcasts", icon: Mail },
   { href: "/admin/audit-log", label: "Audit Log", icon: ClipboardList },
