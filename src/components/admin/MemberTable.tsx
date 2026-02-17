@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { formatMembershipNumber } from "@/lib/utils/membership-number";
+import { formatMembershipNumber } from "@/lib/utils/format-membership-number";
 
 interface MemberWithHousehold {
   id: string;

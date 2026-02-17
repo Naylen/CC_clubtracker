@@ -2,6 +2,9 @@ import { db } from "@/lib/db";
 import { member, household, membership } from "@/lib/db/schema";
 import { eq, sql } from "drizzle-orm";
 
+// Re-export the pure formatter so existing server-side imports still work
+export { formatMembershipNumber } from "./format-membership-number";
+
 /**
  * Assign a membership number to a member if they don't already have one.
  * Uses MAX + 1 approach. Idempotent — returns existing number if already set.
@@ -30,14 +33,6 @@ export async function assignMembershipNumber(
     .returning({ membershipNumber: member.membershipNumber });
 
   return result[0].membershipNumber!;
-}
-
-/**
- * Format a membership number for display: zero-padded to at least 3 digits.
- * e.g., 1 → "001", 42 → "042", 1234 → "1234"
- */
-export function formatMembershipNumber(num: number): string {
-  return String(num).padStart(3, "0");
 }
 
 /**
@@ -84,6 +79,7 @@ export async function activateAndAssignNumber(
 
   // Assign membership number (idempotent)
   const membershipNumber = await assignMembershipNumber(target.id);
+  const { formatMembershipNumber } = await import("./format-membership-number");
   const formatted = formatMembershipNumber(membershipNumber);
 
   // Update household name to include the membership number
