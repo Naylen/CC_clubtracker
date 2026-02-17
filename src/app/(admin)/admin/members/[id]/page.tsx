@@ -4,10 +4,12 @@ import { getHouseholdById } from "@/actions/households";
 import { getMembershipsByHousehold } from "@/actions/memberships";
 import { HouseholdForm } from "@/components/admin/HouseholdForm";
 import { AddHouseholdMemberForm } from "@/components/admin/AddHouseholdMemberForm";
+import { EditMemberForm } from "@/components/admin/EditMemberForm";
 import { SetTempPasswordForm } from "@/components/admin/SetTempPasswordForm";
 import { DriverLicenseReveal } from "@/components/admin/DriverLicenseReveal";
 import { VeteranDocViewer } from "@/components/admin/VeteranDocViewer";
 import { formatCurrency, formatDateET } from "@/lib/utils/dates";
+import { formatMembershipNumber } from "@/lib/utils/membership-number";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
@@ -49,6 +51,11 @@ export default async function MemberDetailPage({ params }: Props) {
         </Link>
         <h2 className="mt-2 text-2xl font-bold text-gray-900">
           {memberRecord.firstName} {memberRecord.lastName}
+          {memberRecord.membershipNumber != null && (
+            <span className="ml-3 inline-flex rounded-full bg-indigo-100 px-3 py-1 text-sm font-semibold text-indigo-700">
+              #{formatMembershipNumber(memberRecord.membershipNumber)}
+            </span>
+          )}
         </h2>
         <div className="mt-1 flex items-center gap-2">
           <span
@@ -73,20 +80,25 @@ export default async function MemberDetailPage({ params }: Props) {
         </div>
       </div>
 
-      {/* Member Info */}
-      <section className="rounded-lg border bg-white p-6">
-        <h3 className="text-lg font-semibold text-gray-900">Member Details</h3>
-        <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <dt className="text-gray-500">Email</dt>
-            <dd className="font-medium">{memberRecord.email ?? "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-gray-500">Date of Birth</dt>
-            <dd className="font-medium">{memberRecord.dateOfBirth}</dd>
-          </div>
-        </dl>
-      </section>
+      {/* Member Info (Editable) */}
+      <EditMemberForm
+        member={{
+          id: memberRecord.id,
+          householdId: memberRecord.householdId,
+          firstName: memberRecord.firstName,
+          lastName: memberRecord.lastName,
+          email: memberRecord.email,
+          dateOfBirth: memberRecord.dateOfBirth,
+          role: memberRecord.role,
+          isVeteranDisabled: memberRecord.isVeteranDisabled,
+          isAdmin: memberRecord.isAdmin,
+          membershipNumber: memberRecord.membershipNumber,
+          driverLicenseState: memberRecord.driverLicenseState,
+          emergencyContactName: memberRecord.emergencyContactName,
+          emergencyContactPhone: memberRecord.emergencyContactPhone,
+          emergencyContactRelationship: memberRecord.emergencyContactRelationship,
+        }}
+      />
 
       {/* Household Members (Dependents) */}
       <section>

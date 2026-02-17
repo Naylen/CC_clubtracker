@@ -12,6 +12,10 @@ export const memberSchema = z.object({
   role: z.enum(["PRIMARY", "DEPENDENT"]),
   isVeteranDisabled: z.boolean().default(false),
   isAdmin: z.boolean().default(false),
+  driverLicenseState: z.string().length(2, "State must be 2 characters").optional(),
+  emergencyContactName: z.string().min(1, "Name is required").optional(),
+  emergencyContactPhone: z.string().min(1, "Phone is required").optional(),
+  emergencyContactRelationship: z.string().min(1, "Relationship is required").optional(),
 });
 
 export type MemberInput = z.infer<typeof memberSchema>;

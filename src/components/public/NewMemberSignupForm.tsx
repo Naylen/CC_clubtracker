@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signupNewMember } from "@/actions/signup-events";
 import { signIn } from "@/lib/auth-client";
+import { US_STATES } from "@/lib/utils/us-states";
 
 export function NewMemberSignupForm() {
   const router = useRouter();
@@ -150,21 +151,40 @@ export function NewMemberSignupForm() {
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Driver License Number
-          </label>
-          <input
-            name="driverLicense"
-            required
-            placeholder="e.g. K12-345-678"
-            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
-          />
-          <p className="mt-1 text-xs text-gray-500">
-            Required for membership verification. This information is encrypted
-            and stored securely.
-          </p>
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              DL State
+            </label>
+            <select
+              name="driverLicenseState"
+              defaultValue="KY"
+              required
+              className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+            >
+              {US_STATES.map((s) => (
+                <option key={s.code} value={s.code}>
+                  {s.code} — {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="col-span-2">
+            <label className="block text-sm font-medium text-gray-700">
+              Driver License Number
+            </label>
+            <input
+              name="driverLicense"
+              required
+              placeholder="e.g. K12-345-678"
+              className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+            />
+          </div>
         </div>
+        <p className="text-xs text-gray-500">
+          Required for membership verification. This information is encrypted
+          and stored securely.
+        </p>
 
         <div className="flex items-center gap-2">
           <input
@@ -306,6 +326,49 @@ export function NewMemberSignupForm() {
             name="phone"
             className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
           />
+        </div>
+      </fieldset>
+
+      <fieldset className="space-y-4">
+        <legend className="text-lg font-semibold text-gray-900">
+          Emergency Contact
+        </legend>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Contact Name
+          </label>
+          <input
+            name="emergencyContactName"
+            required
+            placeholder="Full name"
+            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Contact Phone
+            </label>
+            <input
+              name="emergencyContactPhone"
+              required
+              placeholder="e.g. 859-555-1234"
+              className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Relationship
+            </label>
+            <input
+              name="emergencyContactRelationship"
+              required
+              placeholder="e.g. Spouse, Parent"
+              className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+            />
+          </div>
         </div>
       </fieldset>
 

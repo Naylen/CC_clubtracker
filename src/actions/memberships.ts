@@ -122,19 +122,31 @@ export async function enrollHousehold(
 
 /**
  * Activate a membership (after payment).
+ * Assigns a membership number to the primary member and updates the household name.
  */
 export async function activateMembership(
   membershipId: string
 ): Promise<ActionResult> {
   try {
-    await db
-      .update(membership)
-      .set({
-        status: "ACTIVE",
-        enrolledAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(membership.id, membershipId));
+    const { activateAndAssignNumber } = await import(
+      "@/lib/utils/membership-number"
+    );
+
+    const result = await activateAndAssignNumber(membershipId);
+
+    if (result) {
+      await recordAudit({
+        actorId: null,
+        actorType: "SYSTEM",
+        action: "membership.activate",
+        entityType: "membership",
+        entityId: membershipId,
+        metadata: {
+          membershipNumber: result.membershipNumber,
+          memberName: result.memberName,
+        },
+      });
+    }
 
     return { success: true, data: undefined };
   } catch (error) {

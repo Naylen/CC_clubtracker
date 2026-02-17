@@ -89,32 +89,39 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Activate the membership (only if in a payable state — M7)
-    await db
-      .update(membership)
-      .set({
-        status: "ACTIVE",
-        enrolledAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(membership.id, membershipId),
-          inArray(membership.status, ["NEW_PENDING", "PENDING_RENEWAL", "ACTIVE"]),
-        ),
-      );
+    // Activate the membership + assign membership number (only if in payable state — M7)
+    const { activateAndAssignNumber } = await import(
+      "@/lib/utils/membership-number"
+    );
 
-    await recordAudit({
-      actorId: null,
-      actorType: "SYSTEM",
-      action: "membership.activate",
-      entityType: "membership",
-      entityId: membershipId,
-      metadata: {
-        trigger: "stripe_webhook",
-        stripeSessionId: session.id,
-      },
-    });
+    // Verify membership is in a payable state before activating
+    const membershipCheck = await db
+      .select({ status: membership.status })
+      .from(membership)
+      .where(eq(membership.id, membershipId))
+      .limit(1);
+
+    const payableStatuses = ["NEW_PENDING", "PENDING_RENEWAL", "ACTIVE"];
+    if (
+      membershipCheck[0] &&
+      payableStatuses.includes(membershipCheck[0].status)
+    ) {
+      const activationResult = await activateAndAssignNumber(membershipId);
+
+      await recordAudit({
+        actorId: null,
+        actorType: "SYSTEM",
+        action: "membership.activate",
+        entityType: "membership",
+        entityId: membershipId,
+        metadata: {
+          trigger: "stripe_webhook",
+          stripeSessionId: session.id,
+          membershipNumber: activationResult?.membershipNumber,
+          memberName: activationResult?.memberName,
+        },
+      });
+    }
 
     console.log(
       JSON.stringify({

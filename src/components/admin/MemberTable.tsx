@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { formatMembershipNumber } from "@/lib/utils/membership-number";
 
 interface MemberWithHousehold {
   id: string;
@@ -9,6 +10,7 @@ interface MemberWithHousehold {
   lastName: string;
   email: string | null;
   role: string;
+  membershipNumber: number | null;
   householdId: string;
   householdName: string;
   householdEmail: string;
@@ -29,7 +31,9 @@ export function MemberTable({ members }: MemberTableProps) {
         .toLowerCase()
         .includes(search.toLowerCase()) ||
       (m.email ?? "").toLowerCase().includes(search.toLowerCase()) ||
-      m.householdName.toLowerCase().includes(search.toLowerCase()),
+      m.householdName.toLowerCase().includes(search.toLowerCase()) ||
+      (m.membershipNumber != null &&
+        String(m.membershipNumber).includes(search)),
   );
 
   return (
@@ -47,6 +51,7 @@ export function MemberTable({ members }: MemberTableProps) {
         <table className="w-full text-left text-sm">
           <thead className="border-b bg-gray-50">
             <tr>
+              <th className="px-4 py-3 font-medium text-gray-500">#</th>
               <th className="px-4 py-3 font-medium text-gray-500">Name</th>
               <th className="px-4 py-3 font-medium text-gray-500">Email</th>
               <th className="px-4 py-3 font-medium text-gray-500">Role</th>
@@ -58,6 +63,11 @@ export function MemberTable({ members }: MemberTableProps) {
           <tbody className="divide-y">
             {filtered.map((m) => (
               <tr key={m.id} className="hover:bg-gray-50">
+                <td className="px-4 py-3 text-gray-500 tabular-nums">
+                  {m.membershipNumber != null
+                    ? formatMembershipNumber(m.membershipNumber)
+                    : "—"}
+                </td>
                 <td className="px-4 py-3 font-medium">
                   {m.firstName} {m.lastName}
                 </td>
@@ -89,7 +99,7 @@ export function MemberTable({ members }: MemberTableProps) {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
                   {search
                     ? "No members match your search."
                     : "No members yet. Add one to get started."}

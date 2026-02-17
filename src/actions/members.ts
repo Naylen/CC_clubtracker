@@ -134,6 +134,7 @@ export async function getMembersWithHousehold() {
       dateOfBirth: member.dateOfBirth,
       isVeteranDisabled: member.isVeteranDisabled,
       isAdmin: member.isAdmin,
+      membershipNumber: member.membershipNumber,
       householdId: member.householdId,
       householdName: household.name,
       householdEmail: household.email,

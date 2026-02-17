@@ -26,6 +26,10 @@ RUN pnpm build
 # Production
 FROM node:22-alpine AS runner
 RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# pg_dump needed for scheduled database backups to Google Drive
+RUN apk add --no-cache postgresql16-client
+
 WORKDIR /app
 
 ENV NODE_ENV=production

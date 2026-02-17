@@ -209,6 +209,7 @@ const publicSignupSchema = z.object({
   email: z.email("Valid email is required"),
   dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
   driverLicense: z.string().min(1, "Driver license number is required"),
+  driverLicenseState: z.string().length(2, "DL state must be 2 characters").optional(),
   isVeteranDisabled: z.boolean().default(false),
   addressLine1: z.string().min(1, "Address is required"),
   addressLine2: z.string().optional(),
@@ -216,6 +217,9 @@ const publicSignupSchema = z.object({
   state: z.string().min(2).max(2, "State must be 2 characters"),
   zip: z.string().regex(/^\d{5}(-\d{4})?$/, "Invalid ZIP code"),
   phone: z.string().optional(),
+  emergencyContactName: z.string().min(1, "Emergency contact name is required"),
+  emergencyContactPhone: z.string().min(1, "Emergency contact phone is required"),
+  emergencyContactRelationship: z.string().min(1, "Relationship is required"),
 });
 
 const ALLOWED_VETERAN_DOC_TYPES = [
@@ -243,6 +247,7 @@ export async function signupNewMember(
       email: formData.get("email") as string,
       dateOfBirth: formData.get("dateOfBirth") as string,
       driverLicense: formData.get("driverLicense") as string,
+      driverLicenseState: (formData.get("driverLicenseState") as string) || undefined,
       isVeteranDisabled: formData.get("isVeteranDisabled") === "on",
       addressLine1: formData.get("addressLine1") as string,
       addressLine2: (formData.get("addressLine2") as string) || undefined,
@@ -250,6 +255,9 @@ export async function signupNewMember(
       state: formData.get("state") as string,
       zip: formData.get("zip") as string,
       phone: (formData.get("phone") as string) || undefined,
+      emergencyContactName: formData.get("emergencyContactName") as string,
+      emergencyContactPhone: formData.get("emergencyContactPhone") as string,
+      emergencyContactRelationship: formData.get("emergencyContactRelationship") as string,
     };
 
     const data = publicSignupSchema.parse(rawData);
@@ -384,6 +392,10 @@ export async function signupNewMember(
         role: "PRIMARY",
         isVeteranDisabled: data.isVeteranDisabled,
         driverLicenseEncrypted,
+        driverLicenseState: data.driverLicenseState,
+        emergencyContactName: data.emergencyContactName,
+        emergencyContactPhone: data.emergencyContactPhone,
+        emergencyContactRelationship: data.emergencyContactRelationship,
         veteranDocEncrypted,
         veteranDocFilename,
         veteranDocMimeType,

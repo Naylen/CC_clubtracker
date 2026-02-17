@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { member, household, membership } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { formatCurrency, formatDateET, formatTime } from "@/lib/utils/dates";
+import { formatMembershipNumber } from "@/lib/utils/membership-number";
 import { getPublicSignupEvent } from "@/actions/signup-events";
 import { getCurrentMembershipForPortal } from "@/actions/memberships";
 import { verifyAndActivatePayment } from "@/actions/payments";
@@ -73,6 +74,11 @@ export default async function MemberDashboard({ searchParams }: Props) {
       <div>
         <h2 className="text-2xl font-bold text-gray-900">
           Welcome, {memberRecord[0].firstName}
+          {memberRecord[0].membershipNumber != null && (
+            <span className="ml-3 inline-flex rounded-full bg-indigo-100 px-3 py-1 text-sm font-semibold text-indigo-700">
+              Member #{formatMembershipNumber(memberRecord[0].membershipNumber)}
+            </span>
+          )}
         </h2>
         <p className="mt-1 text-sm text-gray-500">
           {householdRecord[0]?.name} household

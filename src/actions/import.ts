@@ -36,6 +36,10 @@ const importRowSchema = z.object({
   state: z.string().min(2, "State is required").max(2),
   zip: z.string().regex(/^\d{5}(-\d{4})?$/, "Invalid ZIP code"),
   phone: z.string().optional(),
+  driverLicenseState: z.string().length(2, "DL state must be 2 characters").optional(),
+  emergencyContactName: z.string().optional(),
+  emergencyContactPhone: z.string().optional(),
+  emergencyContactRelationship: z.string().optional(),
 });
 
 export interface ImportRowError {
@@ -181,6 +185,37 @@ const COLUMN_MAP: Record<string, string> = {
   telephone: "phone",
   cell: "phone",
   mobile: "phone",
+
+  // driverLicenseState variants
+  driverlicensestate: "driverLicenseState",
+  dlstate: "driverLicenseState",
+  licensestate: "driverLicenseState",
+  "dl state": "driverLicenseState",
+  "license state": "driverLicenseState",
+  "driver license state": "driverLicenseState",
+
+  // emergencyContactName variants
+  emergencycontactname: "emergencyContactName",
+  emergencyname: "emergencyContactName",
+  "emergency contact name": "emergencyContactName",
+  "emergency name": "emergencyContactName",
+  "emergency contact": "emergencyContactName",
+  ecname: "emergencyContactName",
+
+  // emergencyContactPhone variants
+  emergencycontactphone: "emergencyContactPhone",
+  emergencyphone: "emergencyContactPhone",
+  "emergency contact phone": "emergencyContactPhone",
+  "emergency phone": "emergencyContactPhone",
+  ecphone: "emergencyContactPhone",
+
+  // emergencyContactRelationship variants
+  emergencycontactrelationship: "emergencyContactRelationship",
+  emergencyrelationship: "emergencyContactRelationship",
+  "emergency contact relationship": "emergencyContactRelationship",
+  "emergency relationship": "emergencyContactRelationship",
+  relationship: "emergencyContactRelationship",
+  ecrelationship: "emergencyContactRelationship",
 };
 
 function mapColumnName(rawHeader: string): string | null {
@@ -334,6 +369,13 @@ export async function importMembers(
           state: (row.state ?? "KY").toUpperCase(),
           zip: row.zip ?? "",
           phone: row.phone || undefined,
+          driverLicenseState: row.driverLicenseState
+            ? row.driverLicenseState.toUpperCase()
+            : undefined,
+          emergencyContactName: row.emergencyContactName || undefined,
+          emergencyContactPhone: row.emergencyContactPhone || undefined,
+          emergencyContactRelationship:
+            row.emergencyContactRelationship || undefined,
         });
 
         if (!parsed.success) {
@@ -402,6 +444,10 @@ export async function importMembers(
               dateOfBirth: data.dateOfBirth,
               role: "PRIMARY",
               isVeteranDisabled: data.isVeteranDisabled,
+              driverLicenseState: data.driverLicenseState,
+              emergencyContactName: data.emergencyContactName,
+              emergencyContactPhone: data.emergencyContactPhone,
+              emergencyContactRelationship: data.emergencyContactRelationship,
             });
           }
         } else {
@@ -431,6 +477,10 @@ export async function importMembers(
             dateOfBirth: data.dateOfBirth,
             role: "PRIMARY",
             isVeteranDisabled: data.isVeteranDisabled,
+            driverLicenseState: data.driverLicenseState,
+            emergencyContactName: data.emergencyContactName,
+            emergencyContactPhone: data.emergencyContactPhone,
+            emergencyContactRelationship: data.emergencyContactRelationship,
           });
         }
 
@@ -504,5 +554,5 @@ export async function importMembers(
  */
 export async function getImportTemplate(): Promise<string> {
   await getAdminSession();
-  return "firstName,lastName,email,dateOfBirth,isVeteranDisabled,addressLine1,addressLine2,city,state,zip,phone\nJohn,Doe,john@example.com,1985-05-15,false,123 Main St,,Mt Sterling,KY,40353,859-555-1234";
+  return "firstName,lastName,email,dateOfBirth,isVeteranDisabled,addressLine1,addressLine2,city,state,zip,phone,driverLicenseState,emergencyContactName,emergencyContactPhone,emergencyContactRelationship\nJohn,Doe,john@example.com,1985-05-15,false,123 Main St,,Mt Sterling,KY,40353,859-555-1234,KY,Jane Doe,859-555-5678,Spouse";
 }
