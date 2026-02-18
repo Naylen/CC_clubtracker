@@ -228,10 +228,10 @@ export async function setTempPassword(
   try {
     const { adminMember } = await getSuperAdminSession();
 
-    if (tempPassword.length < 6) {
+    if (tempPassword.length < 12) {
       return {
         success: false,
-        error: "Password must be at least 6 characters",
+        error: "Temporary password must be at least 12 characters.",
       };
     }
 

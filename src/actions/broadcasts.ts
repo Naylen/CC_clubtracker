@@ -3,6 +3,7 @@
 import { db } from "@/lib/db";
 import { communicationsLog, member } from "@/lib/db/schema";
 import { broadcastSchema } from "@/lib/validators/broadcast";
+import sanitizeHtml from "sanitize-html";
 import { recordAudit } from "@/lib/utils/audit";
 import { resolveRecipients } from "@/lib/utils/resolve-recipients";
 import { sendBroadcastEmail, getAvailableProviders } from "@/lib/email";
@@ -34,6 +35,16 @@ export async function sendBroadcast(
     const { adminMember } = await getAdminSession();
     const data = broadcastSchema.parse(input);
 
+    // Sanitize HTML body to prevent XSS in emails
+    const cleanBody = sanitizeHtml(data.body, {
+      allowedTags: sanitizeHtml.defaults.allowedTags.concat(["img"]),
+      allowedAttributes: {
+        ...sanitizeHtml.defaults.allowedAttributes,
+        img: ["src", "alt", "width", "height"],
+      },
+      allowedSchemes: ["http", "https", "mailto"],
+    });
+
     const isScheduled =
       data.scheduledFor && data.scheduledFor.getTime() > Date.now();
 
@@ -51,7 +62,7 @@ export async function sendBroadcast(
         .insert(communicationsLog)
         .values({
           subject: data.subject,
-          body: data.body,
+          body: cleanBody,
           recipientFilter: data.recipientFilter,
           recipientCount: recipients.length,
           sentByAdminId: adminMember.id,
@@ -87,7 +98,7 @@ export async function sendBroadcast(
       .insert(communicationsLog)
       .values({
         subject: data.subject,
-        body: data.body,
+        body: cleanBody,
         recipientFilter: data.recipientFilter,
         recipientCount: recipients.length,
         sentByAdminId: adminMember.id,
@@ -104,7 +115,7 @@ export async function sendBroadcast(
         const batchId = await sendBroadcastEmail({
           to: recipients,
           subject: data.subject,
-          body: data.body,
+          body: cleanBody,
           provider,
         });
         if (batchId) {

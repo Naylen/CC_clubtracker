@@ -1,5 +1,6 @@
-import { execSync } from "child_process";
-import { existsSync, statSync, unlinkSync, createReadStream } from "fs";
+import { execFileSync } from "child_process";
+import { existsSync, statSync, unlinkSync, writeFileSync, createReadStream } from "fs";
+import { gzipSync } from "zlib";
 import { google } from "googleapis";
 import { recordAudit } from "@/lib/utils/audit";
 
@@ -25,10 +26,11 @@ export async function runDbBackup(): Promise<{
   const filename = `mcfgc-backup-${date}.sql.gz`;
   const filepath = `/tmp/${filename}`;
 
-  execSync(`pg_dump "${databaseUrl}" | gzip > "${filepath}"`, {
+  const dump = execFileSync("pg_dump", [databaseUrl], {
     timeout: 120_000,
-    stdio: "pipe",
+    maxBuffer: 100 * 1024 * 1024,
   });
+  writeFileSync(filepath, gzipSync(dump));
 
   if (!existsSync(filepath)) {
     throw new Error("pg_dump failed — output file not created");

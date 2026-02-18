@@ -68,18 +68,6 @@ export async function enrollHousehold(
       return { success: false, error: "No primary member found for household" };
     }
 
-    // Check capacity (BR-1)
-    const capacity = await checkCapacity(
-      data.membershipYearId,
-      year[0].capacityCap
-    );
-    if (capacity.isFull) {
-      return {
-        success: false,
-        error: `Membership is full (${capacity.occupied}/${capacity.cap})`,
-      };
-    }
-
     // Calculate price (BR-4, BR-5)
     const pricing = calculatePrice({
       dateOfBirth: primaryMember[0].dateOfBirth,
@@ -87,16 +75,33 @@ export async function enrollHousehold(
       membershipYear: year[0].year,
     });
 
-    const [created] = await db
-      .insert(membership)
-      .values({
-        householdId: data.householdId,
-        membershipYearId: data.membershipYearId,
-        status: "NEW_PENDING",
-        priceCents: pricing.priceCents,
-        discountType: pricing.discountType,
-      })
-      .returning({ id: membership.id });
+    // Capacity check + insert inside a transaction so the FOR UPDATE lock
+    // is held until the insert completes (BR-1 race condition fix).
+    const created = await db.transaction(async (tx) => {
+      const capacity = await checkCapacity(
+        data.membershipYearId,
+        year[0].capacityCap,
+        tx,
+      );
+      if (capacity.isFull) {
+        throw new Error(
+          `Membership is full (${capacity.occupied}/${capacity.cap})`,
+        );
+      }
+
+      const [inserted] = await tx
+        .insert(membership)
+        .values({
+          householdId: data.householdId,
+          membershipYearId: data.membershipYearId,
+          status: "NEW_PENDING",
+          priceCents: pricing.priceCents,
+          discountType: pricing.discountType,
+        })
+        .returning({ id: membership.id });
+
+      return inserted;
+    });
 
     await recordAudit({
       actorId: adminMember.id,
