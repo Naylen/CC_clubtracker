@@ -67,8 +67,10 @@ mcfgc-club-manager/
 │   ├── renewal-reminder.tsx
 │   ├── magic-link.tsx
 │   └── broadcast.tsx
+├── scripts/
+│   └── backfill-member-numbers.mjs ← one-time backfill for existing ACTIVE members
 ├── src/
-│   ├── instrumentation.ts          ← startup: schema push + admin seed + tier seed
+│   ├── instrumentation.ts          ← startup: run migrations + admin seed + tier seed
 │   ├── middleware.ts               ← auth redirect rules
 │   ├── app/
 │   │   ├── layout.tsx              ← root layout
@@ -139,6 +141,11 @@ mcfgc-club-manager/
 │   │   │   └── VeteranDocViewer.tsx        ← view uploaded vet doc
 │   │   ├── member/                 ← member-specific components
 │   │   │   ├── ApplicationStatusCard.tsx  ← review/approved/active status
+│   │   │   ├── EditHouseholdForm.tsx      ← member edits own address/phone
+│   │   │   ├── EditMyProfileForm.tsx      ← member edits own profile
+│   │   │   ├── MemberAddDependentForm.tsx ← member adds dependent
+│   │   │   ├── MemberEditDependentForm.tsx← member edits dependent
+│   │   │   ├── RemoveDependentButton.tsx  ← member removes dependent
 │   │   │   └── RenewalCard.tsx            ← renewal payment card
 │   │   └── public/                 ← public-facing components
 │   │       └── NewMemberSignupForm.tsx    ← signup form with password + DL + vet doc
@@ -151,6 +158,7 @@ mcfgc-club-manager/
 │   │   │   ├── index.ts            ← Drizzle client (postgres.js driver)
 │   │   │   ├── seed-admin.ts       ← initial admin seeding from env vars
 │   │   │   ├── seed-membership-tiers.ts ← default tier seeding
+│   │   │   ├── migrations/         ← generated SQL migrations (drizzle-kit generate)
 │   │   │   └── schema/             ← Drizzle schema definitions
 │   │   │       ├── index.ts        ← barrel export
 │   │   │       ├── auth.ts         ← Better Auth tables
@@ -178,6 +186,7 @@ mcfgc-club-manager/
 │   │       ├── broadcast.ts        ← broadcast Zod schema (+ emailProvider)
 │   │       ├── household.ts
 │   │       ├── member.ts
+│   │       ├── member-portal.ts    ← member self-service validation schemas
 │   │       ├── membership.ts
 │   │       └── payment.ts
 │   ├── actions/                    ← Server Actions (grouped by domain)
@@ -186,6 +195,8 @@ mcfgc-club-manager/
 │   │   ├── broadcasts.ts           ← send broadcast with provider routing
 │   │   ├── encrypted-data.ts       ← DL encryption/decryption
 │   │   ├── households.ts
+│   │   ├── import.ts               ← CSV member import
+│   │   ├── member-portal.ts        ← member self-service (household, profile, dependents)
 │   │   ├── members.ts
 │   │   ├── membership-tiers.ts
 │   │   ├── membership-years.ts
@@ -257,8 +268,10 @@ mcfgc-club-manager/
 - **Drizzle query builder only.** No raw SQL except the `FOR UPDATE` capacity
   lock query.
 - **Transactions** for operations that modify multiple tables.
-- **Schema push** (`drizzle-kit push --force`) runs on every startup via
-  `instrumentation.ts`. No migration files in production.
+- **Generated SQL migrations** (`drizzle-kit migrate`) run on every startup via
+  `instrumentation.ts`. Migration files live in `src/lib/db/migrations/`.
+  To add schema changes: edit schema files → `drizzle-kit generate` → commit
+  the migration → restart.
 - **All prices in cents** (integer). Format only at the UI boundary with
   `formatCurrency()`.
 - **All timestamps in UTC.** Display with `formatDateET()`.
@@ -328,9 +341,17 @@ pnpm test:e2e                         # Playwright
 stripe listen --forward-to localhost:3001/api/webhooks/stripe
 stripe trigger checkout.session.completed
 
+# ── Database Migrations ────────────────────────────────────────
+docker compose exec app pnpm drizzle-kit generate   # Generate migration from schema changes
+# Migrations apply automatically on next app restart via instrumentation.ts
+
+# ── Backfill Scripts ──────────────────────────────────────────
+docker compose exec app node scripts/backfill-member-numbers.mjs  # Assign numbers to ACTIVE members
+
 # ── Cron (manual trigger for testing) ─────────────────────────
 curl -X POST -H "x-cron-secret: YOUR_SECRET" http://localhost:3001/api/cron/lapse-check
 curl -X POST -H "x-cron-secret: YOUR_SECRET" http://localhost:3001/api/cron/db-backup
+curl -X POST -H "x-cron-secret: YOUR_SECRET" http://localhost:3001/api/cron/send-scheduled
 ```
 
 ---

@@ -39,12 +39,16 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 
-# Copy drizzle-kit and schema for runtime schema push (instrumentation.ts)
+# Copy drizzle-kit, schema, and migrations for runtime migration (instrumentation.ts)
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/drizzle.config.ts ./drizzle.config.ts
 COPY --from=builder /app/src/lib/db/schema ./src/lib/db/schema
+COPY --from=builder /app/src/lib/db/migrations ./src/lib/db/migrations
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
+
+# Copy utility scripts (e.g., backfill-member-numbers)
+COPY --from=builder /app/scripts ./scripts
 
 EXPOSE 3001
 CMD ["node", "server.js"]

@@ -61,7 +61,7 @@ docker compose up -d --build
 ```
 
 On first startup, the app automatically:
-- Pushes the database schema (via `drizzle-kit push`)
+- Runs database migrations (via `drizzle-kit migrate`)
 - Seeds the initial admin account from env vars
 - Seeds default membership tiers (Standard, Veteran, Senior)
 
@@ -95,7 +95,7 @@ docker compose -f docker-compose.prod.yml up -d --build
 - PostgreSQL has no exposed ports (internal network only)
 - Next.js standalone build (`output: "standalone"`)
 - `APP_DOMAIN` env var drives all URL-based configuration
-- Schema push + seeding runs automatically on first startup
+- Database migrations + seeding run automatically on first startup
 - Cloudflare Tunnel terminates TLS; Better Auth configured with
   `useSecureCookies` and `trustedOrigins` for reverse proxy compatibility
 - Client-side auth uses `window.location.origin` (no build-time env vars needed)
