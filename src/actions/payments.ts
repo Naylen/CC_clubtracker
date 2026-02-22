@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { payment, membership, member, household } from "@/lib/db/schema";
 import { recordPaymentSchema } from "@/lib/validators/payment";
 import { recordAudit } from "@/lib/utils/audit";
+import { activateAndAssignNumber } from "@/lib/utils/membership-number";
 import { createCheckoutSession, retrieveCheckoutSession } from "@/lib/stripe";
 import { eq, desc, and } from "drizzle-orm";
 import { auth } from "@/lib/auth";
@@ -72,15 +73,8 @@ export async function recordPayment(
       })
       .returning({ id: payment.id });
 
-    // Activate the membership
-    await db
-      .update(membership)
-      .set({
-        status: "ACTIVE",
-        enrolledAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(membership.id, data.membershipId));
+    // Activate the membership and assign membership number
+    await activateAndAssignNumber(data.membershipId);
 
     await recordAudit({
       actorId: adminMember.id,
@@ -297,15 +291,8 @@ export async function verifyAndActivatePayment(
       }
     }
 
-    // Activate the membership (idempotent — setting ACTIVE on already ACTIVE is fine)
-    await db
-      .update(membership)
-      .set({
-        status: "ACTIVE",
-        enrolledAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(membership.id, membershipId));
+    // Activate the membership and assign membership number (idempotent)
+    await activateAndAssignNumber(membershipId);
 
     await recordAudit({
       actorId: null,
