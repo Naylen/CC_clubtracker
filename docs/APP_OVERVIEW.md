@@ -66,6 +66,10 @@ The application serves three distinct audiences:
 - See application progress (under review, approved, active).
 - Pay annual dues online through Stripe Checkout when approved.
 - View payment history and household details.
+- Update household address and phone (when membership is ACTIVE).
+- Update own profile (name, email, DOB, DL state, veteran status, emergency
+  contact) when membership is ACTIVE.
+- Add, edit, and remove dependents in their household (ACTIVE members only).
 
 **Public (Unauthenticated)**
 - View the public sign-up day page (when admin makes it visible).
@@ -86,7 +90,8 @@ that:
 4. **Provides an auditable communications log** so every mass email is recorded
    with subject, body, recipient list, timestamp, and sending provider.
 5. **Gives members self-service access** to check status, see application
-   progress, and pay dues without calling an officer.
+   progress, pay dues, and update their household details, profile, and
+   dependents without calling an officer.
 6. **Handles new-member applications** with online sign-up, document upload
    (driver's license, veteran documentation), password creation, and auto-login.
 
@@ -261,7 +266,7 @@ The app supports two payment channels with belt-and-suspenders verification:
 | **Language** | TypeScript (strict mode) | End-to-end type safety from database schema to UI props. |
 | **Authentication** | Better Auth v1.4 | Stable 1.x release with native Drizzle adapter, email/password provider, and magic-link plugin. |
 | **Database** | PostgreSQL 16 (Docker) | Self-hosted via Docker Compose with isolated network. Production uses the same container image. |
-| **ORM** | Drizzle ORM 0.45 | Type-safe schema in TypeScript, lightweight runtime, push-based migrations. |
+| **ORM** | Drizzle ORM 0.45 | Type-safe schema in TypeScript, lightweight runtime, generated SQL migrations. |
 | **Payments** | Stripe Checkout + Webhooks | Hosted checkout minimizes PCI scope; dual verification (webhook + server-side retrieve) ensures reliability. |
 | **Email** | Resend + Gmail SMTP (nodemailer) | Dual-provider support. Resend for batch API; Gmail for clubs that prefer their own email address. Selectable per broadcast. |
 | **Hosting** | Docker + Cloudflare Tunnel | Self-hosted Docker containers; Cloudflare Tunnel provides HTTPS frontend with no exposed ports. |
@@ -287,9 +292,11 @@ starts, schema-as-code in TypeScript, and stronger type inference for joins.
 **Dual Email Providers**: Resend for reliable batch delivery; Gmail SMTP as a
 zero-cost option using the club's existing email account.
 
-**Schema Push over Migrations**: `drizzle-kit push --force` runs on every
-startup via `instrumentation.ts`. Simple and reliable for a single-instance
-deployment.
+**Generated Migrations over Schema Push**: `drizzle-kit migrate` runs on every
+startup via `instrumentation.ts`. Generated SQL migrations are idempotent and
+avoid interactive prompts that would block Docker startup. To add schema
+changes: edit schema files, run `drizzle-kit generate`, commit the migration,
+and restart — migrations apply automatically.
 
 ---
 
@@ -698,14 +705,14 @@ configuration:
 |------|--------|
 | `SUPER_ADMIN` | Full access + admin management (promote/demote) |
 | `ADMIN` | Full CRUD on roster, payments, broadcasts, audit log |
-| `MEMBER` | Read own household/membership; initiate own payment |
+| `MEMBER` | Read/update own household, profile, and dependents; initiate own payment (requires ACTIVE membership for writes) |
 | `UNAUTHENTICATED` | Login page + public sign-up day page only |
 
 **Enforcement layers:**
 1. **Middleware** (`src/middleware.ts`): Redirects based on auth state and role.
 2. **Server Actions**: Re-validates session and checks role before executing.
 3. **Database queries**: Member-facing queries scope to authenticated user's
-   household ID.
+   household ID (derived from session, never from client input).
 
 ### 7.3  Encryption at Rest
 
@@ -778,7 +785,7 @@ docker compose -f docker-compose.prod.yml up -d --build
 - `APP_DOMAIN` env var drives all URL-based configuration.
 - `setup.sh` auto-generates: `BETTER_AUTH_SECRET`, `ENCRYPTION_KEY`,
   `DB_PASSWORD`.
-- Schema push runs automatically on startup via `instrumentation.ts`.
+- Database migrations run automatically on startup via `instrumentation.ts`.
 - Admin account seeded from env vars on first startup.
 - Default membership tiers seeded on first startup.
 
@@ -811,4 +818,4 @@ See `.env.example` for the complete reference with all variables documented.
 
 ---
 
-*Last updated: 2026 · MCFGC Club Manager v1.2.0*
+*Last updated: February 2026 · MCFGC Club Manager v1.3.0*

@@ -10,6 +10,11 @@ import { getPublicSignupEvent } from "@/actions/signup-events";
 import { getCurrentMembershipForPortal } from "@/actions/memberships";
 import { verifyAndActivatePayment } from "@/actions/payments";
 import { ApplicationStatusCard } from "@/components/member/ApplicationStatusCard";
+import { EditHouseholdForm } from "@/components/member/EditHouseholdForm";
+import { EditMyProfileForm } from "@/components/member/EditMyProfileForm";
+import { MemberAddDependentForm } from "@/components/member/MemberAddDependentForm";
+import { MemberEditDependentForm } from "@/components/member/MemberEditDependentForm";
+import { RemoveDependentButton } from "@/components/member/RemoveDependentButton";
 
 export const dynamic = "force-dynamic";
 
@@ -68,6 +73,8 @@ export default async function MemberDashboard({ searchParams }: Props) {
   const currentMembership = await getCurrentMembershipForPortal(
     memberRecord[0].householdId
   );
+
+  const isActive = currentMembership?.status === "ACTIVE";
 
   return (
     <div className="space-y-8">
@@ -150,62 +157,109 @@ export default async function MemberDashboard({ searchParams }: Props) {
         </section>
       )}
 
-      {/* Household Info */}
-      <section className="rounded-lg border bg-white p-6">
-        <h3 className="text-lg font-semibold text-gray-900">
-          Household Details
-        </h3>
-        <dl className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 text-sm">
-          <div>
-            <dt className="text-gray-500">Address</dt>
-            <dd>
-              {householdRecord[0]?.addressLine1}
-              {householdRecord[0]?.addressLine2 && (
-                <>, {householdRecord[0].addressLine2}</>
-              )}
-              <br />
-              {householdRecord[0]?.city}, {householdRecord[0]?.state}{" "}
-              {householdRecord[0]?.zip}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-gray-500">Contact</dt>
-            <dd>
-              {householdRecord[0]?.email}
-              {householdRecord[0]?.phone && (
-                <>
-                  <br />
-                  {householdRecord[0].phone}
-                </>
-              )}
-            </dd>
-          </div>
-        </dl>
-      </section>
+      {/* Household Info — editable when ACTIVE */}
+      {isActive && householdRecord[0] ? (
+        <EditHouseholdForm household={householdRecord[0]} />
+      ) : (
+        <section className="rounded-lg border bg-white p-6">
+          <h3 className="text-lg font-semibold text-gray-900">
+            Household Details
+          </h3>
+          <dl className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 text-sm">
+            <div>
+              <dt className="text-gray-500">Address</dt>
+              <dd>
+                {householdRecord[0]?.addressLine1}
+                {householdRecord[0]?.addressLine2 && (
+                  <>, {householdRecord[0].addressLine2}</>
+                )}
+                <br />
+                {householdRecord[0]?.city}, {householdRecord[0]?.state}{" "}
+                {householdRecord[0]?.zip}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-gray-500">Contact</dt>
+              <dd>
+                {householdRecord[0]?.email}
+                {householdRecord[0]?.phone && (
+                  <>
+                    <br />
+                    {householdRecord[0].phone}
+                  </>
+                )}
+              </dd>
+            </div>
+          </dl>
+        </section>
+      )}
 
-      {/* Household Members */}
+      {/* My Profile — editable when ACTIVE */}
+      {isActive ? (
+        <EditMyProfileForm member={memberRecord[0]} />
+      ) : (
+        (memberRecord[0].emergencyContactName ||
+          memberRecord[0].emergencyContactPhone) && (
+          <section className="rounded-lg border bg-white p-6">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Emergency Contact
+            </h3>
+            <dl className="mt-4 text-sm">
+              <dd>
+                {memberRecord[0].emergencyContactName}
+                {memberRecord[0].emergencyContactPhone && (
+                  <> &middot; {memberRecord[0].emergencyContactPhone}</>
+                )}
+                {memberRecord[0].emergencyContactRelationship && (
+                  <> ({memberRecord[0].emergencyContactRelationship})</>
+                )}
+              </dd>
+            </dl>
+          </section>
+        )
+      )}
+
+      {/* Household Members — with add/edit/remove when ACTIVE */}
       <section className="rounded-lg border bg-white p-6">
         <h3 className="text-lg font-semibold text-gray-900">
           Household Members
         </h3>
         <ul className="mt-4 divide-y text-sm">
           {householdMembers.map((m) => (
-            <li key={m.id} className="flex items-center justify-between py-2">
-              <span>
-                {m.firstName} {m.lastName}
-              </span>
-              <span
-                className={`rounded-full px-2 py-1 text-xs font-medium ${
-                  m.role === "PRIMARY"
-                    ? "bg-blue-100 text-blue-700"
-                    : "bg-gray-100 text-gray-600"
-                }`}
-              >
-                {m.role}
-              </span>
+            <li key={m.id} className="py-2">
+              <div className="flex items-center justify-between">
+                <span>
+                  {m.firstName} {m.lastName}
+                </span>
+                <div className="flex items-center gap-2">
+                  {isActive && m.role === "DEPENDENT" && (
+                    <>
+                      <MemberEditDependentForm dependent={m} />
+                      <RemoveDependentButton
+                        dependentId={m.id}
+                        dependentName={`${m.firstName} ${m.lastName}`}
+                      />
+                    </>
+                  )}
+                  <span
+                    className={`rounded-full px-2 py-1 text-xs font-medium ${
+                      m.role === "PRIMARY"
+                        ? "bg-blue-100 text-blue-700"
+                        : "bg-gray-100 text-gray-600"
+                    }`}
+                  >
+                    {m.role}
+                  </span>
+                </div>
+              </div>
             </li>
           ))}
         </ul>
+        {isActive && (
+          <div className="mt-4">
+            <MemberAddDependentForm />
+          </div>
+        )}
       </section>
 
       {/* Membership History */}

@@ -2,11 +2,20 @@
  * Next.js Instrumentation Hook
  *
  * Runs once when the server starts. Used here to:
- * 1. Push the Drizzle schema to the database (ensuring tables exist)
+ * 1. Run Drizzle migrations to ensure all tables exist
  * 2. Seed the initial admin user from environment variables
+ * 3. Seed default membership tiers
  *
- * The schema push uses drizzle-kit to sync the schema with the database,
- * which is safe for dev. In production, use proper migrations.
+ * Uses `drizzle-kit migrate` (generated SQL migrations) instead of
+ * `drizzle-kit push` to avoid interactive prompts that block Docker
+ * startup. Migrations are idempotent — already-applied migrations
+ * are skipped automatically.
+ *
+ * To add new schema changes:
+ *   1. Edit the schema files in src/lib/db/schema/
+ *   2. Run: docker compose exec app pnpm drizzle-kit generate
+ *   3. Commit the generated migration file in src/lib/db/migrations/
+ *   4. Restart the app — migrations apply automatically
  */
 export async function register() {
   // Only run on the server (not during build or in edge runtime)
@@ -15,24 +24,16 @@ export async function register() {
     await new Promise((resolve) => setTimeout(resolve, 3000));
 
     try {
-      // Run drizzle-kit push to sync schema with the database.
-      // Do NOT use --force: it auto-approves table truncation which
-      // destroys production data. Instead, redirect stdin from /dev/null
-      // so drizzle-kit gets immediate EOF if it prompts for interactive
-      // input — this causes it to exit/error safely rather than hanging
-      // or truncating tables. The catch block below handles the failure
-      // gracefully (schema may already be in sync).
-      console.log("[init] Pushing database schema...");
+      console.log("[init] Running database migrations...");
       const { execSync } = await import("child_process");
-      execSync("pnpm drizzle-kit push < /dev/null", {
-        stdio: ["inherit", "inherit", "inherit"],
+      execSync("pnpm drizzle-kit migrate", {
+        stdio: ["pipe", "inherit", "inherit"],
         env: { ...process.env },
         timeout: 60000,
       });
-      console.log("[init] Schema push complete.");
+      console.log("[init] Migrations complete.");
     } catch (error) {
-      console.error("[init] Schema push failed:", error);
-      // Don't fail startup — the schema might already be up to date
+      console.error("[init] Migration failed:", error);
     }
 
     // Seed admin — retry with backoff since the auth API may not be ready
