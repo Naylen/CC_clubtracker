@@ -280,7 +280,9 @@ export default async function MemberDashboard({ searchParams }: Props) {
                       ? "bg-green-100 text-green-700"
                       : m.status === "LAPSED"
                         ? "bg-red-100 text-red-700"
-                        : "bg-yellow-100 text-yellow-700"
+                        : m.status === "REMOVED"
+                          ? "bg-gray-200 text-gray-700"
+                          : "bg-yellow-100 text-yellow-700"
                   }`}
                 >
                   {m.status}

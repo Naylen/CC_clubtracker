@@ -29,9 +29,27 @@ export const membershipTierSchema = z.object({
   sortOrder: z.number().int().min(0).default(0),
 });
 
+export const removeMemberSchema = z.object({
+  householdId: z.string().uuid(),
+  reason: z.enum([
+    "RULE_VIOLATION",
+    "VOLUNTARY_WITHDRAWAL",
+    "DECEASED",
+    "OTHER",
+  ]),
+  notes: z.string().max(500).optional(),
+});
+
+export const purgeMemberSchema = z.object({
+  householdId: z.string().uuid(),
+  confirmName: z.string().min(1),
+});
+
 export type CreateMembershipYearInput = z.infer<
   typeof createMembershipYearSchema
 >;
 export type EnrollMemberInput = z.infer<typeof enrollMemberSchema>;
 export type SignupEventInput = z.infer<typeof signupEventSchema>;
 export type MembershipTierInput = z.infer<typeof membershipTierSchema>;
+export type RemoveMemberInput = z.infer<typeof removeMemberSchema>;
+export type PurgeMemberInput = z.infer<typeof purgeMemberSchema>;

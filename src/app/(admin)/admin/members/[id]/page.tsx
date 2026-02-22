@@ -2,12 +2,14 @@ import { notFound } from "next/navigation";
 import { getMemberById, getMembersByHousehold } from "@/actions/members";
 import { getHouseholdById } from "@/actions/households";
 import { getMembershipsByHousehold } from "@/actions/memberships";
+import { getCurrentMembershipYear } from "@/actions/membership-years";
 import { HouseholdForm } from "@/components/admin/HouseholdForm";
 import { AddHouseholdMemberForm } from "@/components/admin/AddHouseholdMemberForm";
 import { EditMemberForm } from "@/components/admin/EditMemberForm";
 import { SetTempPasswordForm } from "@/components/admin/SetTempPasswordForm";
 import { DriverLicenseReveal } from "@/components/admin/DriverLicenseReveal";
 import { VeteranDocViewer } from "@/components/admin/VeteranDocViewer";
+import { MemberActionsSection } from "@/components/admin/MemberActionsSection";
 import { formatCurrency, formatDateET } from "@/lib/utils/dates";
 import { formatMembershipNumber } from "@/lib/utils/membership-number";
 import Link from "next/link";
@@ -16,6 +18,7 @@ import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { member } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import type { MembershipStatus } from "@/types";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +39,25 @@ export default async function MemberDetailPage({ params }: Props) {
     memberRecord.householdId,
   );
   const memberships = await getMembershipsByHousehold(memberRecord.householdId);
+
+  // Determine if current admin is a super admin (reused for temp password + member actions)
+  const session = await auth.api.getSession({ headers: await headers() });
+  const currentAdmin = session
+    ? await db
+        .select()
+        .from(member)
+        .where(eq(member.email, session.user.email))
+        .limit(1)
+    : [];
+  const isSuperAdmin = currentAdmin[0]?.adminRole === "SUPER_ADMIN";
+
+  // Find current-year membership status for member actions
+  const currentMembershipYear = await getCurrentMembershipYear();
+  const currentYearMembership = currentMembershipYear
+    ? memberships.find(
+        (m) => m.membershipYearId === currentMembershipYear.id,
+      )
+    : null;
 
   // Separate primary from dependents
   const dependents = householdMembers.filter((m) => m.role === "DEPENDENT");
@@ -199,30 +221,19 @@ export default async function MemberDetailPage({ params }: Props) {
       )}
 
       {/* Temp Password (SUPER_ADMIN only) */}
-      {await (async () => {
-        const session = await auth.api.getSession({ headers: await headers() });
-        if (!session) return null;
-        const currentAdmin = await db
-          .select()
-          .from(member)
-          .where(eq(member.email, session.user.email))
-          .limit(1);
-        if (currentAdmin[0]?.adminRole !== "SUPER_ADMIN") return null;
-        if (!memberRecord.email) return null;
-        return (
-          <section>
-            <h3 className="text-lg font-semibold text-gray-900">
-              Password Management
-            </h3>
-            <div className="mt-4 max-w-md">
-              <SetTempPasswordForm
-                memberId={memberRecord.id}
-                memberName={`${memberRecord.firstName} ${memberRecord.lastName}`}
-              />
-            </div>
-          </section>
-        );
-      })()}
+      {isSuperAdmin && memberRecord.email && (
+        <section>
+          <h3 className="text-lg font-semibold text-gray-900">
+            Password Management
+          </h3>
+          <div className="mt-4 max-w-md">
+            <SetTempPasswordForm
+              memberId={memberRecord.id}
+              memberName={`${memberRecord.firstName} ${memberRecord.lastName}`}
+            />
+          </div>
+        </section>
+      )}
 
       {/* Membership History */}
       <section>
@@ -253,7 +264,9 @@ export default async function MemberDetailPage({ params }: Props) {
                           ? "bg-green-100 text-green-700"
                           : m.status === "LAPSED"
                             ? "bg-red-100 text-red-700"
-                            : "bg-yellow-100 text-yellow-700"
+                            : m.status === "REMOVED"
+                              ? "bg-gray-200 text-gray-700"
+                              : "bg-yellow-100 text-yellow-700"
                       }`}
                     >
                       {m.status}
@@ -278,6 +291,25 @@ export default async function MemberDetailPage({ params }: Props) {
               )}
             </tbody>
           </table>
+        </div>
+      </section>
+
+      {/* Member Actions (Remove / Purge) */}
+      <section className="rounded-lg border-2 border-red-200 bg-red-50 p-6">
+        <h3 className="text-lg font-semibold text-red-900">Member Actions</h3>
+        <p className="mt-1 text-xs text-red-700">
+          Destructive actions for this household&apos;s membership.
+        </p>
+        <div className="mt-4">
+          <MemberActionsSection
+            householdId={memberRecord.householdId}
+            householdName={household.name}
+            memberName={`${memberRecord.firstName} ${memberRecord.lastName}`}
+            currentMembershipStatus={
+              (currentYearMembership?.status as MembershipStatus) ?? null
+            }
+            isSuperAdmin={isSuperAdmin}
+          />
         </div>
       </section>
     </div>

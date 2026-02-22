@@ -4,8 +4,14 @@ export type MembershipStatus =
   | "PENDING_RENEWAL"
   | "ACTIVE"
   | "LAPSED"
-  | "NEW_PENDING";
+  | "NEW_PENDING"
+  | "REMOVED";
 export type DiscountType = "NONE" | "VETERAN" | "SENIOR";
+export type RemovalReason =
+  | "RULE_VIOLATION"
+  | "VOLUNTARY_WITHDRAWAL"
+  | "DECEASED"
+  | "OTHER";
 export type PaymentMethod = "STRIPE" | "CASH" | "CHECK";
 export type PaymentStatus = "PENDING" | "SUCCEEDED" | "FAILED" | "REFUNDED";
 export type ActorType = "ADMIN" | "SYSTEM" | "MEMBER";

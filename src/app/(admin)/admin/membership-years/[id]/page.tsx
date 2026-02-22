@@ -80,6 +80,12 @@ export default async function MembershipYearDetailPage({ params }: Props) {
                 {statusCounts["LAPSED"] ?? 0}
               </span>
             </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Removed</span>
+              <span className="font-medium text-gray-700">
+                {statusCounts["REMOVED"] ?? 0}
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -168,7 +174,9 @@ export default async function MembershipYearDetailPage({ params }: Props) {
                           ? "bg-green-100 text-green-700"
                           : m.status === "LAPSED"
                             ? "bg-red-100 text-red-700"
-                            : "bg-yellow-100 text-yellow-700"
+                            : m.status === "REMOVED"
+                              ? "bg-gray-200 text-gray-700"
+                              : "bg-yellow-100 text-yellow-700"
                       }`}
                     >
                       {m.status}

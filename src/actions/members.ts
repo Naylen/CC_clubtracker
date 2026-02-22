@@ -4,10 +4,11 @@ import { db } from "@/lib/db";
 import { member } from "@/lib/db/schema";
 import { memberSchema } from "@/lib/validators/member";
 import { recordAudit } from "@/lib/utils/audit";
-import { eq, and } from "drizzle-orm";
+import { eq, and, isNotNull } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import type { ActionResult } from "@/types";
+import type { ActionResult, AdminRole } from "@/types";
+import { canManageAdmins } from "@/lib/utils/rbac";
 
 async function getAdminSession() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -18,6 +19,21 @@ async function getAdminSession() {
     .where(eq(member.email, session.user.email))
     .limit(1);
   if (!adminMember[0]?.isAdmin) throw new Error("Forbidden: Admin only");
+  return { session, adminMember: adminMember[0] };
+}
+
+async function getSuperAdminSession() {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) throw new Error("Unauthorized");
+  const adminMember = await db
+    .select()
+    .from(member)
+    .where(eq(member.email, session.user.email))
+    .limit(1);
+  if (!adminMember[0]?.isAdmin) throw new Error("Forbidden: Admin only");
+  if (!canManageAdmins(adminMember[0].adminRole as AdminRole | null)) {
+    throw new Error("Forbidden: Only Super Admins can perform this action");
+  }
   return { session, adminMember: adminMember[0] };
 }
 
@@ -270,6 +286,220 @@ export async function addHouseholdMember(
     });
 
     return { success: true, data: { id: created.id } };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+/**
+ * Soft-remove a household's current-year membership.
+ * Sets status to REMOVED with a reason. Records stay for posterity.
+ */
+export async function removeMember(
+  input: unknown,
+): Promise<ActionResult> {
+  try {
+    const { adminMember } = await getAdminSession();
+    const { removeMemberSchema } = await import(
+      "@/lib/validators/membership"
+    );
+    const data = removeMemberSchema.parse(input);
+
+    const { membership, membershipYear } = await import("@/lib/db/schema");
+    const { household } = await import("@/lib/db/schema");
+
+    // Find current-year membership
+    const currentYear = new Date().getFullYear();
+    const yearRecord = await db
+      .select()
+      .from(membershipYear)
+      .where(eq(membershipYear.year, currentYear))
+      .limit(1);
+
+    if (!yearRecord[0]) {
+      return { success: false, error: "No membership year found for current year" };
+    }
+
+    const existing = await db
+      .select()
+      .from(membership)
+      .where(
+        and(
+          eq(membership.householdId, data.householdId),
+          eq(membership.membershipYearId, yearRecord[0].id),
+        ),
+      )
+      .limit(1);
+
+    if (!existing[0]) {
+      return { success: false, error: "No current-year membership found for this household" };
+    }
+
+    if (existing[0].status === "REMOVED") {
+      return { success: false, error: "Membership is already removed" };
+    }
+
+    const previousStatus = existing[0].status;
+
+    // Update to REMOVED
+    await db
+      .update(membership)
+      .set({
+        status: "REMOVED",
+        removalReason: data.reason,
+        removalNotes: data.notes ?? null,
+        removedAt: new Date(),
+      })
+      .where(eq(membership.id, existing[0].id));
+
+    // Get household name for audit
+    const householdRecord = await db
+      .select({ name: household.name })
+      .from(household)
+      .where(eq(household.id, data.householdId))
+      .limit(1);
+
+    await recordAudit({
+      actorId: adminMember.id,
+      actorType: "ADMIN",
+      action: "membership.remove",
+      entityType: "membership",
+      entityId: existing[0].id,
+      metadata: {
+        reason: data.reason,
+        notes: data.notes,
+        previousStatus,
+        householdName: householdRecord[0]?.name,
+      },
+    });
+
+    return { success: true, data: undefined };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+/**
+ * Permanently delete all records for a household (hard purge).
+ * Super Admin only. For test data cleanup.
+ */
+export async function purgeHousehold(
+  input: unknown,
+): Promise<ActionResult> {
+  try {
+    const { adminMember } = await getSuperAdminSession();
+    const { purgeMemberSchema } = await import(
+      "@/lib/validators/membership"
+    );
+    const data = purgeMemberSchema.parse(input);
+
+    const {
+      household,
+      membership,
+      payment,
+      auditLog,
+      communicationsLog,
+      signupEventConfig,
+      user,
+    } = await import("@/lib/db/schema");
+
+    // Verify household exists and name matches
+    const householdRecord = await db
+      .select()
+      .from(household)
+      .where(eq(household.id, data.householdId))
+      .limit(1);
+
+    if (!householdRecord[0]) {
+      return { success: false, error: "Household not found" };
+    }
+
+    if (householdRecord[0].name !== data.confirmName) {
+      return { success: false, error: "Household name does not match" };
+    }
+
+    // Get all member IDs for this household
+    const householdMembers = await db
+      .select({ id: member.id, email: member.email })
+      .from(member)
+      .where(eq(member.householdId, data.householdId));
+
+    const memberIds = householdMembers.map((m) => m.id);
+    const memberEmails = householdMembers
+      .map((m) => m.email)
+      .filter((e): e is string => e !== null);
+
+    // Check for NOT NULL FK refs that would block deletion
+    for (const memberId of memberIds) {
+      const commsRef = await db
+        .select({ id: communicationsLog.id })
+        .from(communicationsLog)
+        .where(eq(communicationsLog.sentByAdminId, memberId))
+        .limit(1);
+
+      if (commsRef[0]) {
+        return {
+          success: false,
+          error:
+            "Cannot purge: a member in this household has sent broadcasts. Remove their admin role and reassign broadcasts first.",
+        };
+      }
+
+      const signupRef = await db
+        .select({ id: signupEventConfig.id })
+        .from(signupEventConfig)
+        .where(eq(signupEventConfig.updatedByAdminId, memberId))
+        .limit(1);
+
+      if (signupRef[0]) {
+        return {
+          success: false,
+          error:
+            "Cannot purge: a member in this household has updated signup events. Reassign those records first.",
+        };
+      }
+    }
+
+    // Null out nullable FK refs
+    for (const memberId of memberIds) {
+      await db
+        .update(payment)
+        .set({ recordedByAdminId: null })
+        .where(eq(payment.recordedByAdminId, memberId));
+
+      await db
+        .update(auditLog)
+        .set({ actorId: null })
+        .where(eq(auditLog.actorId, memberId));
+    }
+
+    // Delete auth user records by member emails (cascades to session + account)
+    for (const email of memberEmails) {
+      await db.delete(user).where(eq(user.email, email));
+    }
+
+    // Delete household (cascades to member, membership, payment via membership)
+    await db.delete(household).where(eq(household.id, data.householdId));
+
+    await recordAudit({
+      actorId: adminMember.id,
+      actorType: "ADMIN",
+      action: "household.purge",
+      entityType: "household",
+      entityId: data.householdId,
+      metadata: {
+        householdName: householdRecord[0].name,
+        memberEmails,
+      },
+    });
+
+    return { success: true, data: undefined };
   } catch (error) {
     return {
       success: false,

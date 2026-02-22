@@ -2,6 +2,7 @@ import {
   integer,
   pgEnum,
   pgTable,
+  text,
   timestamp,
   unique,
   uuid,
@@ -15,6 +16,7 @@ export const membershipStatusEnum = pgEnum("membership_status", [
   "ACTIVE",
   "LAPSED",
   "NEW_PENDING",
+  "REMOVED",
 ]);
 
 export const discountTypeEnum = pgEnum("discount_type", [
@@ -42,6 +44,9 @@ export const membership = pgTable(
     ),
     enrolledAt: timestamp("enrolled_at", { withTimezone: true }),
     lapsedAt: timestamp("lapsed_at", { withTimezone: true }),
+    removalReason: text("removal_reason"),
+    removalNotes: text("removal_notes"),
+    removedAt: timestamp("removed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

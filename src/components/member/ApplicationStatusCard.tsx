@@ -150,6 +150,39 @@ export function ApplicationStatusCard({
     );
   }
 
+  // Removed membership
+  if (status === "REMOVED") {
+    return (
+      <div className="rounded-lg border-2 border-gray-300 bg-gray-50 p-6">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-200">
+            <svg
+              className="h-6 w-6 text-gray-700"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">
+              Membership Removed
+            </h3>
+            <p className="text-sm text-gray-600">
+              Please contact a club officer if you have questions.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Other statuses (LAPSED, etc.) — don't render
   return null;
 }
