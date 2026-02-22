@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { signIn } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
+import { checkUserRole } from "@/actions/auth-check";
 
 export function LoginForm() {
   const router = useRouter();
@@ -23,8 +24,9 @@ export function LoginForm() {
           password,
         },
         {
-          onSuccess: () => {
-            router.push("/admin/dashboard");
+          onSuccess: async () => {
+            const role = await checkUserRole();
+            router.push(role?.isAdmin ? "/admin/dashboard" : "/member/dashboard");
           },
           onError: (ctx) => {
             setError(ctx.error.message ?? "Invalid credentials");
