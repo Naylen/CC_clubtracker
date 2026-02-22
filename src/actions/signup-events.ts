@@ -350,7 +350,7 @@ export async function signupNewMember(
       };
     }
 
-    // Check for duplicate email
+    // Check for existing member by email
     const existingMember = await db
       .select()
       .from(member)
@@ -358,9 +358,101 @@ export async function signupNewMember(
       .limit(1);
 
     if (existingMember[0]) {
+      // Check if they have a membership for the current year
+      const existingMembership = await db
+        .select()
+        .from(membership)
+        .where(
+          and(
+            eq(membership.householdId, existingMember[0].householdId),
+            eq(membership.membershipYearId, yearRecord[0].id),
+          ),
+        )
+        .limit(1);
+
+      // If they have a non-lapsed membership for this year, reject
+      if (existingMembership[0] && existingMembership[0].status !== "LAPSED") {
+        return {
+          success: false,
+          error:
+            "A member with this email already has an active or pending membership for this year.",
+        };
+      }
+
+      // Delete lapsed membership record if it exists
+      if (existingMembership[0]?.status === "LAPSED") {
+        await db
+          .delete(membership)
+          .where(eq(membership.id, existingMembership[0].id));
+      }
+
+      // Update existing household address fields
+      const { household } = await import("@/lib/db/schema");
+      await db
+        .update(household)
+        .set({
+          addressLine1: data.addressLine1,
+          addressLine2: data.addressLine2 ?? null,
+          city: data.city,
+          state: data.state,
+          zip: data.zip,
+          phone: data.phone ?? null,
+        })
+        .where(eq(household.id, existingMember[0].householdId));
+
+      // Update existing member fields
+      await db
+        .update(member)
+        .set({
+          firstName: data.firstName,
+          lastName: data.lastName,
+          dateOfBirth: data.dateOfBirth,
+          isVeteranDisabled: data.isVeteranDisabled,
+          driverLicenseEncrypted,
+          driverLicenseState: data.driverLicenseState ?? null,
+          emergencyContactName: data.emergencyContactName,
+          emergencyContactPhone: data.emergencyContactPhone,
+          emergencyContactRelationship: data.emergencyContactRelationship,
+          // Only overwrite veteran doc if a new one was uploaded
+          ...(veteranDocEncrypted
+            ? {
+                veteranDocEncrypted,
+                veteranDocFilename,
+                veteranDocMimeType,
+              }
+            : {}),
+        })
+        .where(eq(member.id, existingMember[0].id));
+
+      // Create new NEW_PENDING membership
+      await db.insert(membership).values({
+        householdId: existingMember[0].householdId,
+        membershipYearId: yearRecord[0].id,
+        status: "NEW_PENDING",
+        priceCents: 0,
+        discountType: "NONE",
+        membershipTierId: null,
+      });
+
+      await recordAudit({
+        actorId: null,
+        actorType: "SYSTEM",
+        action: "signup_day.lapsed_re_enrollment",
+        entityType: "member",
+        entityId: existingMember[0].id,
+        metadata: {
+          name: `${data.firstName} ${data.lastName}`,
+          email: data.email,
+          householdId: existingMember[0].householdId,
+          hadLapsedMembership: !!existingMembership[0],
+          hasVeteranDoc: !!veteranDocEncrypted,
+        },
+      });
+
+      // Skip auth account creation — they already have one
       return {
-        success: false,
-        error: "A member with this email already exists. Please contact a club officer if you need assistance.",
+        success: true,
+        data: { memberId: existingMember[0].id, email: data.email },
       };
     }
 

@@ -131,6 +131,15 @@ export async function createStripeCheckout(
       return { success: false, error: "Membership not found" };
     }
 
+    // Verify membership is in a payable state
+    const payableStatuses = ["NEW_PENDING", "PENDING_RENEWAL"];
+    if (!payableStatuses.includes(membershipRecord[0].status)) {
+      return {
+        success: false,
+        error: `Cannot pay: membership status is ${membershipRecord[0].status}`,
+      };
+    }
+
     // Verify membership belongs to caller's household
     if (membershipRecord[0].householdId !== callerMember[0].householdId) {
       return { success: false, error: "Forbidden" };
