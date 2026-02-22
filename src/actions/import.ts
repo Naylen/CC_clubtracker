@@ -5,6 +5,8 @@ import { member, household, membership, membershipYear } from "@/lib/db/schema";
 import { recordAudit } from "@/lib/utils/audit";
 import { calculatePrice } from "@/lib/utils/pricing";
 import { getCapacityDisplay } from "@/lib/utils/capacity";
+import { assignMembershipNumber } from "@/lib/utils/membership-number";
+import { formatMembershipNumber } from "@/lib/utils/format-membership-number";
 import { eq, and } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
@@ -500,6 +502,22 @@ export async function importMembers(
           discountType: pricing.discountType,
           enrolledAt: new Date(),
         });
+
+        // Assign membership number and update household name
+        const primaryMember = await db
+          .select({ id: member.id, lastName: member.lastName })
+          .from(member)
+          .where(eq(member.email, data.email))
+          .limit(1);
+
+        if (primaryMember[0]) {
+          const memberNum = await assignMembershipNumber(primaryMember[0].id);
+          const formatted = formatMembershipNumber(memberNum);
+          await db
+            .update(household)
+            .set({ name: `${primaryMember[0].lastName} (${formatted}) Household` })
+            .where(eq(household.id, householdId));
+        }
 
         result.imported++;
       } catch (error) {
