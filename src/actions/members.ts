@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { member } from "@/lib/db/schema";
 import { memberSchema } from "@/lib/validators/member";
 import { recordAudit } from "@/lib/utils/audit";
-import { eq, and, isNotNull } from "drizzle-orm";
+import { eq, and, isNotNull, sql } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import type { ActionResult, AdminRole } from "@/types";
@@ -139,8 +139,18 @@ export async function getPrimaryMember(householdId: string) {
 
 export async function getMembersWithHousehold() {
   await getAdminSession();
-  const { household } = await import("@/lib/db/schema");
-  return db
+  const { household, membership, membershipYear } = await import(
+    "@/lib/db/schema"
+  );
+
+  const currentYear = new Date().getFullYear();
+  const yearRecord = await db
+    .select({ id: membershipYear.id })
+    .from(membershipYear)
+    .where(eq(membershipYear.year, currentYear))
+    .limit(1);
+
+  const query = db
     .select({
       id: member.id,
       firstName: member.firstName,
@@ -156,10 +166,24 @@ export async function getMembersWithHousehold() {
       householdEmail: household.email,
       city: household.city,
       state: household.state,
+      membershipStatus: yearRecord[0]
+        ? membership.status
+        : sql<string | null>`null`.as("membershipStatus"),
     })
     .from(member)
-    .innerJoin(household, eq(member.householdId, household.id))
-    .orderBy(member.lastName, member.firstName);
+    .innerJoin(household, eq(member.householdId, household.id));
+
+  if (yearRecord[0]) {
+    query.leftJoin(
+      membership,
+      and(
+        eq(membership.householdId, member.householdId),
+        eq(membership.membershipYearId, yearRecord[0].id),
+      ),
+    );
+  }
+
+  return query.orderBy(member.lastName, member.firstName);
 }
 
 export async function getMemberById(id: string) {
