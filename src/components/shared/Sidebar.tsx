@@ -15,6 +15,7 @@ import {
   Tag,
   ClipboardCheck,
   FileUp,
+  HardDriveDownload,
   X,
 } from "lucide-react";
 
@@ -41,6 +42,11 @@ const navItems = [
     href: "/admin/admin-management",
     label: "Admin Management",
     icon: ShieldCheck,
+  },
+  {
+    href: "/admin/db-restore",
+    label: "DB Restore",
+    icon: HardDriveDownload,
   },
 ];
 
