@@ -11,6 +11,9 @@ export const broadcastSchema = z.object({
   }),
   emailProvider: z.enum(["resend", "gmail"]).default("resend"),
   scheduledFor: z.coerce.date().optional(),
+  // Set by the compose form so server-side can re-link uploaded
+  // attachments (broadcast_attachment.draft_id) to the broadcast row.
+  draftId: z.uuid().optional(),
 });
 
 export type BroadcastInput = z.infer<typeof broadcastSchema>;

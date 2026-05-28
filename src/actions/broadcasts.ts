@@ -1,17 +1,50 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { communicationsLog, member } from "@/lib/db/schema";
+import {
+  broadcastAttachment,
+  communicationsLog,
+  member,
+} from "@/lib/db/schema";
 import { broadcastSchema } from "@/lib/validators/broadcast";
 import sanitizeHtml from "sanitize-html";
 import { recordAudit } from "@/lib/utils/audit";
 import { resolveRecipients } from "@/lib/utils/resolve-recipients";
-import { sendBroadcastEmail, getAvailableProviders } from "@/lib/email";
-import { eq, desc } from "drizzle-orm";
+import {
+  sendBroadcastEmail,
+  getAvailableProviders,
+  loadBroadcastAttachments,
+  wrapBroadcastHtml,
+} from "@/lib/email";
+import { eq, desc, and, isNull } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import type { ActionResult, RecipientFilter } from "@/types";
 import type { EmailProvider } from "@/lib/email";
+
+/**
+ * Re-link draft-stage attachments to the broadcast row they were composed
+ * against. After this runs, the rows are addressable by communicationsLogId
+ * and the orphan-sweep cron will leave them alone.
+ *
+ * No-op when no draftId is provided (older clients) or when no rows match
+ * (e.g., the admin composed without attaching anything).
+ */
+async function linkDraftAttachments(
+  draftId: string | undefined,
+  communicationsLogId: string,
+): Promise<void> {
+  if (!draftId) return;
+  await db
+    .update(broadcastAttachment)
+    .set({ communicationsLogId, draftId: null })
+    .where(
+      and(
+        eq(broadcastAttachment.draftId, draftId),
+        isNull(broadcastAttachment.communicationsLogId),
+      ),
+    );
+}
 
 async function getAdminSession() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -35,12 +68,14 @@ export async function sendBroadcast(
     const { adminMember } = await getAdminSession();
     const data = broadcastSchema.parse(input);
 
-    // Sanitize HTML body to prevent XSS in emails
+    // Sanitize HTML body to prevent XSS in emails. data-att-id round-trips
+    // so the send pipeline can map editor-inserted images to their MIME
+    // parts at send time.
     const cleanBody = sanitizeHtml(data.body, {
       allowedTags: sanitizeHtml.defaults.allowedTags.concat(["img"]),
       allowedAttributes: {
         ...sanitizeHtml.defaults.allowedAttributes,
-        img: ["src", "alt", "width", "height"],
+        img: ["src", "alt", "width", "height", "data-att-id"],
       },
       allowedSchemes: ["http", "https", "mailto"],
     });
@@ -72,6 +107,8 @@ export async function sendBroadcast(
           emailProvider: provider,
         })
         .returning({ id: communicationsLog.id });
+
+      await linkDraftAttachments(data.draftId, logEntry.id);
 
       await recordAudit({
         actorId: adminMember.id,
@@ -108,6 +145,9 @@ export async function sendBroadcast(
       })
       .returning({ id: communicationsLog.id });
 
+    await linkDraftAttachments(data.draftId, logEntry.id);
+    const attachments = await loadBroadcastAttachments(logEntry.id);
+
     // Send emails in the background (fire-and-forget)
     const logId = logEntry.id;
     void (async () => {
@@ -117,6 +157,7 @@ export async function sendBroadcast(
           subject: data.subject,
           body: cleanBody,
           provider,
+          attachments,
         });
         if (batchId) {
           await db
@@ -231,4 +272,25 @@ export async function getEmailProviders(): Promise<
   { provider: EmailProvider; label: string }[]
 > {
   return getAvailableProviders();
+}
+
+/**
+ * Render the broadcast body the same way the send pipeline does — apply
+ * the sanitizer with the same allowlist, then wrap with the standard
+ * email shell. Inline image src URLs are left as in-app preview URLs so
+ * the modal can render them; the cid: rewrite happens only at send time.
+ */
+export async function previewBroadcast(
+  body: string,
+): Promise<{ html: string }> {
+  await getAdminSession();
+  const cleanBody = sanitizeHtml(body, {
+    allowedTags: sanitizeHtml.defaults.allowedTags.concat(["img"]),
+    allowedAttributes: {
+      ...sanitizeHtml.defaults.allowedAttributes,
+      img: ["src", "alt", "width", "height", "data-att-id"],
+    },
+    allowedSchemes: ["http", "https", "mailto"],
+  });
+  return { html: wrapBroadcastHtml(cleanBody) };
 }

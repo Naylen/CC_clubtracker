@@ -1,5 +1,8 @@
 import { Resend } from "resend";
 import nodemailer from "nodemailer";
+import { eq } from "drizzle-orm";
+import { db } from "@/lib/db";
+import { broadcastAttachment } from "@/lib/db/schema";
 
 /**
  * Lazy-initialized Resend client.
@@ -117,17 +120,65 @@ export async function sendRenewalReminder(
   });
 }
 
+export interface BroadcastAttachment {
+  id: string;
+  filename: string;
+  mimeType: string;
+  isInline: boolean;
+  data: Buffer;
+}
+
+/**
+ * Fetch attachment rows (including binary payload) for a sent or scheduled
+ * broadcast. Returns an empty array if none are attached, so callers can
+ * forward the result to `sendBroadcastEmail` unconditionally.
+ */
+export async function loadBroadcastAttachments(
+  communicationsLogId: string,
+): Promise<BroadcastAttachment[]> {
+  const rows = await db
+    .select({
+      id: broadcastAttachment.id,
+      filename: broadcastAttachment.filename,
+      mimeType: broadcastAttachment.mimeType,
+      isInline: broadcastAttachment.isInline,
+      data: broadcastAttachment.data,
+    })
+    .from(broadcastAttachment)
+    .where(eq(broadcastAttachment.communicationsLogId, communicationsLogId));
+  return rows;
+}
+
 interface BroadcastEmailParams {
   to: string[];
   subject: string;
   body: string;
   provider?: EmailProvider;
+  attachments?: BroadcastAttachment[];
+}
+
+/**
+ * Rewrite in-app preview URLs to cid: references for inline attachments
+ * so the recipient's mail client resolves them against the MIME parts we
+ * attach. URLs are unique by attachment id, so the replace is safe.
+ */
+function rewriteInlineAttachmentRefs(
+  body: string,
+  attachments: BroadcastAttachment[],
+): string {
+  let out = body;
+  for (const a of attachments) {
+    if (!a.isInline) continue;
+    const url = `/api/admin/broadcast-attachments/${a.id}`;
+    out = out.split(url).join(`cid:att-${a.id}`);
+  }
+  return out;
 }
 
 /**
  * Wrap broadcast HTML body with the standard email template.
  */
-function wrapBroadcastHtml(body: string): string {
+export function wrapBroadcastHtml(body: string): string {
   return `
     <div style="max-width:600px;margin:0 auto;">
       <h2 style="color:#1a5632;">Montgomery County Fish & Game Club</h2>
@@ -147,32 +198,53 @@ export async function sendBroadcastEmail(
 ): Promise<string | undefined> {
   const provider = params.provider ?? "resend";
   const from = getFromAddress(provider);
-  const html = wrapBroadcastHtml(params.body);
+  const attachments = params.attachments ?? [];
+  const rewrittenBody = rewriteInlineAttachmentRefs(params.body, attachments);
+  const html = wrapBroadcastHtml(rewrittenBody);
 
   if (provider === "gmail") {
-    return sendBroadcastViaGmail({ ...params, from, html });
+    return sendBroadcastViaGmail({ ...params, from, html, attachments });
   }
 
-  return sendBroadcastViaResend({ ...params, from, html });
+  return sendBroadcastViaResend({ ...params, from, html, attachments });
 }
 
 /**
  * Send broadcast via Resend batch API.
+ *
+ * For inline images, Resend's REST API accepts a `content_id` field on each
+ * attachment that matches the `cid:` value in the HTML. The Node SDK's
+ * static type doesn't include that field yet — we widen with a cast so the
+ * snake_case key reaches the wire as-is.
  */
 async function sendBroadcastViaResend(params: {
   to: string[];
   subject: string;
   from: string;
   html: string;
+  attachments: BroadcastAttachment[];
 }): Promise<string | undefined> {
+  const resendAttachments = params.attachments.map((a) => ({
+    filename: a.filename,
+    content: a.data,
+    contentType: a.mimeType,
+    content_id: a.isInline ? `att-${a.id}` : undefined,
+    content_disposition: a.isInline ? "inline" : "attachment",
+  }));
+
   const emails = params.to.map((email) => ({
     from: params.from,
     to: email,
     subject: params.subject,
     html: params.html,
+    ...(resendAttachments.length > 0 ? { attachments: resendAttachments } : {}),
   }));
 
-  const result = await getResend().batch.send(emails);
+  const result = await getResend().batch.send(
+    emails as unknown as Parameters<
+      ReturnType<typeof getResend>["batch"]["send"]
+    >[0],
+  );
   return result.data?.data?.[0]?.id;
 }
 
@@ -186,8 +258,18 @@ async function sendBroadcastViaGmail(params: {
   subject: string;
   from: string;
   html: string;
+  attachments: BroadcastAttachment[];
 }): Promise<string | undefined> {
   const transport = getGmailTransport();
+  const mailAttachments = params.attachments.map((a) => ({
+    filename: a.filename,
+    content: a.data,
+    contentType: a.mimeType,
+    cid: a.isInline ? `att-${a.id}` : undefined,
+    contentDisposition: a.isInline
+      ? ("inline" as const)
+      : ("attachment" as const),
+  }));
   let sentCount = 0;
 
   for (const recipient of params.to) {
@@ -196,6 +278,7 @@ async function sendBroadcastViaGmail(params: {
       to: recipient,
       subject: params.subject,
       html: params.html,
+      attachments: mailAttachments,
     });
     sentCount++;
 

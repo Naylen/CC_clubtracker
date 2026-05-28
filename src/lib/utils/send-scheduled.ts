@@ -2,7 +2,7 @@ import { db } from "@/lib/db";
 import { communicationsLog } from "@/lib/db/schema";
 import { resolveRecipients } from "@/lib/utils/resolve-recipients";
 import { recordAudit } from "@/lib/utils/audit";
-import { sendBroadcastEmail } from "@/lib/email";
+import { sendBroadcastEmail, loadBroadcastAttachments } from "@/lib/email";
 import { eq, and, lte } from "drizzle-orm";
 import type { RecipientFilter } from "@/types";
 import type { EmailProvider } from "@/lib/email";
@@ -43,12 +43,14 @@ export async function runSendScheduled(): Promise<{
       }
 
       const provider = (broadcast.emailProvider ?? "resend") as EmailProvider;
+      const attachments = await loadBroadcastAttachments(broadcast.id);
 
       const batchId = await sendBroadcastEmail({
         to: recipients,
         subject: broadcast.subject,
         body: broadcast.body,
         provider,
+        attachments,
       });
 
       await db

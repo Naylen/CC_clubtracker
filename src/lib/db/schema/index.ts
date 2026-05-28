@@ -12,3 +12,4 @@ export { signupEventConfig } from "./signup-event-config";
 export { communicationsLog, broadcastStatusEnum } from "./communications-log";
 export { auditLog, actorTypeEnum } from "./audit-log";
 export { membershipTier } from "./membership-tier";
+export { broadcastAttachment } from "./broadcast-attachment";
